@@ -1,0 +1,47 @@
+# 忽略所有大文件类型（无论在哪个子文件夹）
+**/*.pth
+**/*.pt
+**/*.ckpt
+**/*.safetensors
+**/*.onnx
+**/*.pb
+**/*.h5
+**/*.pkl
+**/*.joblib
+**/*.bin
+**/*.weights
+
+# 忽略视频/音频
+**/*.mp4
+**/*.avi
+**/*.mov
+**/*.mkv
+**/*.mp3
+**/*.wav
+**/*.flac
+
+# 忽略压缩包
+**/*.zip
+**/*.tar.gz
+**/*.rar
+**/*.7z
+
+# 忽略常见大文件夹（无论在哪个层级）
+**/models/
+**/weights/
+**/checkpoints/
+**/pretrained/
+**/data/
+**/dataset/
+**/datasets/
+**/uploads/
+**/output/
+**/results/
+**/logs/
+**/temp/
+**/tmp/
+**/cache/
+**/__pycache__/
+
+# 忽略特定大文件夹（根据实际情况调整）
+**/bs/

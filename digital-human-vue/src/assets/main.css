@@ -1,0 +1,36 @@
+@import './base.css';
+
+/* 覆盖 vite 模板的居中与最大宽度限制，让应用占满可用宽度 */
+#app {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  font-weight: normal;
+}
+
+a,
+.green {
+  text-decoration: none;
+  color: hsla(160, 100%, 37%, 1);
+  transition: 0.4s;
+  padding: 3px;
+}
+
+@media (hover: hover) {
+  a:hover {
+    background-color: hsla(160, 100%, 37%, 0.2);
+  }
+}
+
+/* 移除桌面端将整个应用居中与设置为双列网格的行为 */
+@media (min-width: 1024px) {
+  body {
+    display: block;
+  }
+
+  #app {
+    display: block;
+    padding: 0;
+  }
+}

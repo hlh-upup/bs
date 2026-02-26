@@ -1,0 +1,256 @@
+import axios from 'axios'
+
+// 调试开关：在 .env.[mode] 中设置 VITE_APP_DEBUG=true 即可输出详细日志
+const DEBUG = import.meta.env.VITE_APP_DEBUG === 'true'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 3600000, // 1 hour timeout for long operations
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// 请求/响应拦截器用于调试
+api.interceptors.request.use((config) => {
+  if (DEBUG) {
+    ;(config as any).metadata = { start: Date.now() }
+    console.log('%c[API REQUEST]', 'color:#2563eb', config.method?.toUpperCase(), config.url, 'data:', config.data)
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => {
+    if (DEBUG) {
+      const meta = (response.config as any).metadata
+      const duration = meta?.start ? Date.now() - meta.start : 'N/A'
+      console.log('%c[API RESPONSE]', 'color:#16a34a', response.config.url, 'status:', response.status, 'time:', duration + 'ms', 'data:', response.data)
+    }
+    return response
+  },
+  (error) => {
+    if (DEBUG) {
+      if (error.response) {
+        console.warn('[API ERROR]', error.config?.url, 'status:', error.response.status, 'data:', error.response.data)
+      } else {
+        console.warn('[API ERROR]', error.message)
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
+export interface LoginRequest {
+  User: string
+  Password: string
+}
+
+export interface ApiResponse {
+  result: string
+}
+
+export interface ConfigRequest {
+  User: string
+  VITS_Config: any
+  SadTalker_Config: any
+}
+
+export interface ImageRequest {
+  User: string
+  Img: string
+}
+
+export interface PPTRequest {
+  User: string
+  PPT_Remakes: string | Record<string, string>  // 支持字符串或对象
+}
+
+export interface TrainRequest {
+  User: string
+  Label: string
+}
+
+export interface TaskRequest {
+  User: string
+  Task: string
+}
+
+export interface ModelRequest {
+  User: string
+  Index?: string
+}
+
+export interface AudioRequest {
+  User: string
+  Audio_Name: string
+}
+
+export interface RefRequest {
+  User: string
+  Ref_Text: string
+}
+
+class DigitalHumanApiService {
+  private async handleResponse<T>(response: any): Promise<T> {
+    if (response.data?.result === 'Failed') {
+      throw new Error('API request failed')
+    }
+    return response.data
+  }
+
+  async login(credentials: LoginRequest): Promise<boolean> {
+    const response = await api.post<ApiResponse>('/Login', credentials)
+    return response.data?.result === 'Success'
+  }
+
+  async sendImage(request: ImageRequest): Promise<boolean> {
+    const response = await api.post<ApiResponse>('/Send_Image', request)
+    return response.data?.result === 'Success'
+  }
+
+async sendPPTRemakes(request: PPTRequest): Promise<boolean> {    // 智能处理PPT备注数据格式    let processedRequest = { ...request }        if (typeof request.PPT_Remakes === "string") {      // 如果是字符串，尝试解析为JSON对象      try {        parsed = JSON.parse(request.PPT_Remakes)        processedRequest.PPT_Remakes = parsed      } catch (e) {        // 如果解析失败，保持原样（可能是后端期望的字符串格式）        console.warn("PPT_Remakes is not valid JSON, sending as string")      }    }        const response = await api.post<ApiResponse>("/Send_PPT_Remakes", processedRequest)    return response.data?.result === "Success"  }
+
+  async sendConfig(request: ConfigRequest): Promise<boolean> {
+    const response = await api.post<ApiResponse>('/Send_Config', request)
+    return response.data?.result === 'Success'
+  }
+
+  async sendVideo(request: any, videoFile: File): Promise<boolean> {
+    const formData = new FormData()
+    // 对齐C#格式：将整个request对象作为JSON字符串放入"Json"字段
+    formData.append('Json', JSON.stringify(request))
+    formData.append('File', videoFile)
+
+    const response = await api.post<ApiResponse>('/Send_Video', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 7200000, // 2小时超时，对齐C#设置
+    })
+    return response.data?.result === 'Success'
+  }
+
+  async sendTrainAudio(request: AudioRequest, audioFile: File): Promise<boolean> {
+    const formData = new FormData()
+    // 对齐C#格式：将整个request对象作为JSON字符串放入"Json"字段
+    formData.append('Json', JSON.stringify(request))
+    formData.append('File', audioFile)
+
+    const response = await api.post<ApiResponse>('/Send_Tarin_Audio', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 7200000, // 2小时超时，对齐C#设置
+    })
+    return response.data?.result === 'Success'
+  }
+
+  async sendRefWavAndText(request: RefRequest, audioFile: File): Promise<boolean> {
+    const formData = new FormData()
+    // 对齐C#格式：将整个request对象作为JSON字符串放入"Json"字段
+    formData.append('Json', JSON.stringify(request))
+    formData.append('File', audioFile)
+
+    const response = await api.post<ApiResponse>('/Send_Ref_Wav_And_Text', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 7200000, // 2小时超时，对齐C#设置
+    })
+    return response.data?.result === 'Success'
+  }
+
+  async trainVITSModel(request: TrainRequest): Promise<boolean> {
+    const response = await api.post<ApiResponse>('/Train_VITS_Model', request)
+    return response.data?.result === 'Success'
+  }
+
+  async getInference(request: { User: string }): Promise<boolean> {
+    const response = await api.post<ApiResponse>('/Get_Inference', request)
+    return response.data?.result === 'Success'
+  }
+
+  async getInferenceVITS(request: { User: string }): Promise<boolean> {
+    const response = await api.post<ApiResponse>('/Get_Inference_VITS', request)
+    return response.data?.result === 'Success'
+  }
+
+  async pptVideoMerge(request: { User: string }): Promise<boolean> {
+    const response = await api.post<ApiResponse>('/PPT_Video_Merge', request)
+    return response.data?.result === 'Success'
+  }
+
+  async pullVideoMerge(request: { User: string }): Promise<Blob> {
+    const response = await api.post('/Pull_Video_Merge', request, {
+      responseType: 'blob',
+    })
+    return response.data
+  }
+
+  async pullVITSAudio(request: { User: string }): Promise<Blob> {
+    const response = await api.post('/Pull_VITS_Audio', request, {
+      responseType: 'blob',
+    })
+    return response.data
+  }
+
+  async getState(request: TaskRequest): Promise<string> {
+    const response = await api.post<ApiResponse>('/Get_State', request)
+    return response.data?.result || 'Failed'
+  }
+
+  async getTestInference(request: { User: string }): Promise<Blob> {
+    const response = await api.post('/Get_Test_Inference', request, {
+      responseType: 'blob',
+    })
+    return response.data
+  }
+
+  async receiveWavTime(request: { User: string }): Promise<any> {
+    const response = await api.post('/Recive_Wav_Time', request)
+    return response.data?.result
+  }
+
+  async selectVITSModel(request: ModelRequest): Promise<boolean> {
+    const response = await api.post<ApiResponse>('/Send_Select_VITS_Model', request)
+    return response.data?.result === 'Success'
+  }
+
+  async selectTrainVITSModel(request: { User: string }): Promise<boolean> {
+    const response = await api.post<ApiResponse>('/Send_Select_Train_VITS_Model', request)
+    return response.data?.result === 'Success'
+  }
+
+  async waitForTask(
+    user: string,
+    task: string,
+    interval = 60000, // 对齐C#：60秒间隔
+    timeout = 30 * 60 * 1000 // 默认 30 分钟
+  ): Promise<boolean> {
+    const start = Date.now()
+    let attempt = 0
+    while (true) {
+      attempt++
+      const state = await this.getState({ User: user, Task: task })
+      if (DEBUG) {
+        console.log(`[TASK][${task}] attempt=${attempt} state=${state}`)
+      }
+      if (state === 'True') return true
+      if (state === 'Failed') {
+        if (DEBUG) console.warn(`[TASK][${task}] 失败返回 Failed`)
+        return false
+      }
+      if (Date.now() - start > timeout) {
+        if (DEBUG) console.warn(`[TASK][${task}] 超时 (${timeout} ms)`)
+        return false
+      }
+      await new Promise((res) => setTimeout(res, interval))
+    }
+  }
+}
+
+export const digitalHumanApi = new DigitalHumanApiService()
+export default api
