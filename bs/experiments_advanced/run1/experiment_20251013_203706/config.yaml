@@ -1,0 +1,172 @@
+data:
+  audio_sample_rate: 16000
+  batch_size: 8
+  dataset: EmotionTalk
+  dataset_path: datasets\ac.pkl
+  face_size: 96
+  frame_rate: 25
+  max_frames: 150
+  num_workers: 0
+  test_split: 0.1
+  train_split: 0.8
+  val_split: 0.1
+eval:
+  bootstrap:
+    n_resamples: 200
+  metrics:
+  - pearson
+  - spearman
+  - rmse
+  - mae
+  visualization: true
+feature_extraction:
+  au:
+    fallback_model: openface
+    model: py-feat
+  audio:
+    model: hubert
+    model_path: models/hubert-base
+    output_dim: 768
+    pretrained: true
+  feature_types:
+  - visual
+  - audio
+  - keypoint
+  - au
+  - syncnet
+  keypoints:
+    model: mediapipe
+    num_points: 468
+  syncnet:
+    batch_size: 64
+    model_path: f:/bs/models/pre-trained/stable_syncnet.pt
+    v_shift: 0
+  visual:
+    au_model: svm
+    emotion_model: resmasknet
+    face_model: retinaface
+    facepose_model: img2pose
+    fallback_model: resnet101
+    landmark_model: mobilefacenet
+    model: py-feat
+    output_dim: 2048
+    pretrained: true
+features:
+  au:
+    feature_dim: 17
+    model: openface
+    sequence_length: 150
+    target_fps: 25
+  audio:
+    feature_dim: 768
+    model: hubert
+    pretrained: true
+    sample_rate: 16000
+    sequence_length: 150
+  consistency:
+    feature_dim: 1
+  keypoint:
+    feature_dim: 1404
+    model: mediapipe
+    num_points: 468
+    sequence_length: 150
+    target_fps: 25
+  syncnet:
+    batch_size: 64
+    model_path: f:/bs/models/pre-trained/stable_syncnet.pt
+    v_shift: 0
+  visual:
+    feature_dim: 2048
+    model: resnet101
+    pretrained: true
+    sequence_length: 150
+    target_fps: 25
+inference:
+  output_format: json
+  threshold:
+    audio_quality: 3.0
+    cross_modal: 3.0
+    expression: 3.0
+    lip_sync: 3.0
+model:
+  advanced:
+    consistency:
+      mode: corr
+      tasks:
+      - lip_sync
+      - expression
+      - audio_quality
+      - cross_modal
+      weight: 0.05
+    task_weighting: uncertainty
+  au_dim: 17
+  audio_dim: 768
+  dropout: 0.3
+  encoder_dim: 256
+  hidden_dim: 256
+  keypoint_dim: 1404
+  name: AdvancedMultiTaskTalkingFaceEvaluator
+  task_heads:
+    audio_quality:
+      dropout: 0.2
+      hidden_dims:
+      - 128
+      - 64
+      loss_weight: 1.0
+    clamp_output: false
+    cross_modal:
+      dropout: 0.2
+      hidden_dims:
+      - 128
+      - 64
+      loss_weight: 1.0
+    expression:
+      dropout: 0.2
+      hidden_dims:
+      - 128
+      - 64
+      loss_weight: 1.0
+    lip_sync:
+      dropout: 0.2
+      hidden_dims:
+      - 128
+      - 64
+      loss_weight: 1.0
+    out_activation: none
+    overall:
+      dropout: 0.2
+      hidden_dims:
+      - 128
+      - 64
+    score_max: 1.0
+    score_min: -1.0
+  task_weights:
+    audio_quality: 1.0
+    cross_modal: 1.0
+    expression: 1.0
+    lip_sync: 100
+    overall: 1.0
+  transformer:
+    dim_feedforward: 1024
+    dropout: 0.1
+    num_heads: 8
+    num_layers: 3
+  visual_dim: 2048
+train:
+  batch_norm_inputs: true
+  early_stopping: 10
+  epochs: 30
+  gradient_accumulation: 4
+  log_dir: ../experiments/logs
+  mixed_precision: true
+  optimizer:
+    lr: 0.0001
+    type: adam
+    weight_decay: 0.0001
+  output_dir: experiments_advanced\run1\experiment_20251013_203706
+  save_dir: ../experiments
+  save_interval: 10
+  scheduler:
+    T_max: 100
+    eta_min: 0
+    type: cosine

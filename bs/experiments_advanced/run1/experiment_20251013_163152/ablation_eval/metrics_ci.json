@@ -1,0 +1,132 @@
+{
+    "lip_sync": {
+        "rmse": {
+            "low": 0.02260982020376981,
+            "high": 0.022728475493356697
+        },
+        "mae": {
+            "low": 0.022598093142732978,
+            "high": 0.022717157285660504
+        },
+        "r2": {
+            "low": 0.0,
+            "high": 0.0
+        },
+        "pearson": {
+            "low": NaN,
+            "high": NaN
+        },
+        "spearman": {
+            "low": NaN,
+            "high": NaN
+        },
+        "ccc": {
+            "low": 0.0,
+            "high": 0.0
+        }
+    },
+    "expression": {
+        "rmse": {
+            "low": 0.0041037163895704335,
+            "high": 0.004105352120253359
+        },
+        "mae": {
+            "low": 0.004103751224465668,
+            "high": 0.004105391481425613
+        },
+        "r2": {
+            "low": 0.0,
+            "high": 0.0
+        },
+        "pearson": {
+            "low": NaN,
+            "high": NaN
+        },
+        "spearman": {
+            "low": NaN,
+            "high": NaN
+        },
+        "ccc": {
+            "low": 0.0,
+            "high": 0.0
+        }
+    },
+    "audio_quality": {
+        "rmse": {
+            "low": 0.004010891525976737,
+            "high": 0.004012608933218602
+        },
+        "mae": {
+            "low": 0.004010867699980736,
+            "high": 0.0040126150008291004
+        },
+        "r2": {
+            "low": 0.0,
+            "high": 0.0
+        },
+        "pearson": {
+            "low": NaN,
+            "high": NaN
+        },
+        "spearman": {
+            "low": NaN,
+            "high": NaN
+        },
+        "ccc": {
+            "low": 0.0,
+            "high": 0.0
+        }
+    },
+    "cross_modal": {
+        "rmse": {
+            "low": 0.00468049226958042,
+            "high": 0.004681779038083381
+        },
+        "mae": {
+            "low": 0.004680511751212179,
+            "high": 0.004681781132239849
+        },
+        "r2": {
+            "low": 0.0,
+            "high": 0.0
+        },
+        "pearson": {
+            "low": NaN,
+            "high": NaN
+        },
+        "spearman": {
+            "low": NaN,
+            "high": NaN
+        },
+        "ccc": {
+            "low": 0.0,
+            "high": 0.0
+        }
+    },
+    "overall": {
+        "rmse": {
+            "low": 0.003813545124586177,
+            "high": 0.0038150084011031064
+        },
+        "mae": {
+            "low": 0.0038136661692988127,
+            "high": 0.003815008432138711
+        },
+        "r2": {
+            "low": 0.0,
+            "high": 0.0
+        },
+        "pearson": {
+            "low": NaN,
+            "high": NaN
+        },
+        "spearman": {
+            "low": NaN,
+            "high": NaN
+        },
+        "ccc": {
+            "low": 0.0,
+            "high": 0.0
+        }
+    }
+}

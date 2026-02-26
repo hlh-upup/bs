@@ -1,0 +1,8 @@
+python train_improved.py --config_path config/optimized_config.yaml --dataset_path datasets/ac.pkl --output_dir experiments_improved
+
+
+
+Trainer initialized with device: cuda
+F:\bs\train_improved.py:100: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  self.scaler = torch.cuda.amp.GradScaler()
+ - ERROR - Error during training: shape '[300, 100]' is invalid for input of size 48900

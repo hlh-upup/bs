@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(set:*)",
+      "Read(//c/Users/hello/**)",
+      "Bash(git clone:*)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "Bash(find:*)",
+      "Read(//f/human-repo/**)",
+      "Bash(npm create:*)",
+      "Bash(npm install)",
+      "Bash(npm run dev)",
+      "Bash(npm install:*)",
+      "Read(//f/CosyVoice/**)",
+      "Read(//f/human/Digital_Human_API/**)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

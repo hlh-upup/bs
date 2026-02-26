@@ -1,0 +1,5 @@
+﻿timestamp,rater_id,item_id,left_label,right_label,left_path,right_path,left_lip_sync,right_lip_sync,left_expression,right_expression,left_audio_quality,right_audio_quality,left_cross_modal,right_cross_modal,left_overall,right_overall,comments
+2025-09-17 11:39:46,111111,2,B,A,F:\zhipu_test\test\static\videos\female_middle_02\0.mp4,F:\zhipu_test\test\static\videos\female_middle_02\15.mp4,2.3,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,111
+2025-09-17 11:39:49,111111,4,B,A,F:\zhipu_test\test\static\videos\female_middle_02\4.mp4,F:\zhipu_test\test\static\videos\female_middle_02\6.mp4,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,111
+2025-09-17 11:40:06,111111,3,A,B,F:\zhipu_test\test\static\videos\female_middle_02\17.mp4,F:\zhipu_test\test\static\videos\female_middle_02\13.mp4,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,111
+2025-09-17 11:40:11,111111,1,B,A,F:\zhipu_test\test\static\videos\female_middle_02\10.mp4,F:\zhipu_test\test\static\videos\female_middle_02\8.mp4,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,3.0,111

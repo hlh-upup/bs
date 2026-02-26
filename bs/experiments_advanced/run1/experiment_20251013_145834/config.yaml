@@ -1,0 +1,119 @@
+data:
+  audio_sample_rate: 16000
+  batch_size: 2
+  dataset: EmotionTalk
+  dataset_path: ../datasets/ac.pkl
+  face_size: 96
+  frame_rate: 25
+  max_frames: 150
+  num_workers: 0
+  test_split: 0.1
+  train_split: 0.8
+  val_split: 0.1
+eval:
+  eval_interval: 5
+  metrics:
+  - pearson
+  - spearman
+  - rmse
+  - mae
+  - r2
+  visualization: true
+feature_extraction:
+  feature_types:
+  - visual
+  - audio
+  - keypoint
+  - au
+  - syncnet
+model:
+  advanced:
+    consistency:
+      mode: corr
+      tasks:
+      - lip_sync
+      - expression
+      - audio_quality
+      - cross_modal
+      weight: 0.1
+    task_weighting: uncertainty
+  au_dim: 17
+  audio_dim: 200
+  dropout: 0.3
+  encoder_dim: 512
+  hidden_dim: 512
+  keypoint_dim: 50
+  name: OptimizedMTLTalkingFaceEvaluator
+  task_heads:
+    audio_quality:
+      dropout: 0.3
+      hidden_dims:
+      - 256
+      - 128
+    cross_modal:
+      dropout: 0.3
+      hidden_dims:
+      - 256
+      - 128
+    expression:
+      dropout: 0.3
+      hidden_dims:
+      - 256
+      - 128
+    lip_sync:
+      dropout: 0.3
+      hidden_dims:
+      - 256
+      - 128
+    overall:
+      dropout: 0.2
+      hidden_dims:
+      - 256
+      - 128
+  task_weights:
+    audio_quality: 1.0
+    cross_modal: 1.5
+    expression: 1.2
+    lip_sync: 0.8
+    overall: 1.3
+  transformer:
+    dim_feedforward: 2048
+    dropout: 0.1
+    num_heads: 16
+    num_layers: 6
+  visual_dim: 100
+monitoring:
+  log_gradients: true
+  log_memory: true
+  track_feature_stats: true
+preprocessing:
+  feature_scaling: true
+  feature_selection: true
+  nan_handling: impute
+  outlier_detection: true
+  pca_components:
+    au: 17
+    audio: 200
+    keypoint: 50
+    visual: 100
+  scaling_method: standard
+train:
+  early_stopping: 15
+  epochs: 150
+  gradient_accumulation: 8
+  gradient_clipping: 1.0
+  label_smoothing: 0.1
+  log_dir: ../experiments_optimized/logs
+  mixed_precision: true
+  optimizer:
+    lr: 0.001
+    type: adamw
+    weight_decay: 0.01
+  output_dir: experiments_advanced\run1\experiment_20251013_145834
+  save_dir: ../experiments_optimized
+  save_interval: 5
+  scheduler:
+    T_max: 150
+    eta_min: 1e-6
+    type: cosine_with_warmup
+    warmup_steps: 500
