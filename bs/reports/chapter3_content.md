@@ -457,7 +457,7 @@ $$w_k(t+1) = w_k(t) \cdot \left(\frac{\|\nabla_\theta w_k \mathcal{L}_k\|_2}{\ov
 
 | 评估维度 | 有效标签数 | 无效标签数（-1.0） | 有效比例 | 均值 | 标准差 | 最小值 | 最大值 |
 |---------|:---------:|:----------------:|:------:|:----:|:-----:|:-----:|:-----:|
-| 唇形同步（lip\_sync） | 1,985 | 0 | 100.0% | 4.763 | ≈0 | 4.763 | 4.763 |
+| 唇形同步（lip\_sync） | 1,985 | 0 | 100.0% | 4.763 | 0.000 | 4.763 | 4.763 |
 | 表情自然度（expression） | 1,445 | 540 | 72.8% | 3.21 | 0.58 | 1.0 | 5.0 |
 | 音频质量（audio\_quality） | 1,545 | 440 | 77.8% | 3.45 | 0.52 | 1.0 | 5.0 |
 | 跨模态一致性（cross\_modal） | 1,442 | 543 | 72.6% | 3.18 | 0.61 | 1.0 | 5.0 |
@@ -514,11 +514,11 @@ $$R^2 = 1 - \frac{\sum_{i=1}^{N}(y_i - \hat{y}_i)^2}{\sum_{i=1}^{N}(y_i - \bar{y
 
 $$r = \frac{\sum_{i=1}^{N}(y_i - \bar{y})(\hat{y}_i - \bar{\hat{y}})}{\sqrt{\sum_{i=1}^{N}(y_i - \bar{y})^2 \cdot \sum_{i=1}^{N}(\hat{y}_i - \bar{\hat{y}})^2}}$$
 
-③ **Spearman等级相关系数**（Spearman Rank Correlation Coefficient, $\rho$）：基于变量秩次计算的非参数相关性指标，不依赖于线性假设，能够捕捉预测值与真实值之间的单调关系：
+③ **Spearman等级相关系数**（Spearman Rank Correlation Coefficient, $\rho$）：基于变量秩次计算的非参数相关性指标，不依赖于线性假设，能够捕捉预测值与真实值之间的单调关系。在无并列秩次（tied ranks）的情况下，其简化计算公式为：
 
 $$\rho = 1 - \frac{6\sum_{i=1}^{N} d_i^2}{N(N^2-1)}$$
 
-其中 $d_i = \text{rank}(y_i) - \text{rank}(\hat{y}_i)$ 为第 $i$ 个样本的真实值秩次与预测值秩次之差。
+其中 $d_i = \text{rank}(y_i) - \text{rank}(\hat{y}_i)$ 为第 $i$ 个样本的真实值秩次与预测值秩次之差。当存在并列秩次时，本研究采用SciPy库中基于Pearson相关系数计算秩次相关的通用实现。
 
 ④ **Kendall秩相关系数**（Kendall's Tau, $\tau$）：基于一致对（concordant pairs）与非一致对（discordant pairs）计算的非参数相关指标，对样本对的排序一致性具有更严格的衡量：
 
