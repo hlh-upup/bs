@@ -1,39 +1,104 @@
-# 图3-2 与图3-3 架构图描述（重新生成）
+# 图3-2 与图3-3 架构图 Gemini 生图 Prompt
 
 ## 图3-2 多模态特征提取模块架构图
 
-该图展示了从原始输入视频到多模态标准化特征输出的完整特征提取与预处理流程，整体架构自上而下分为"并行特征提取层"和"特征预处理与降维层"两大部分。
+Generate a clean, professional technical architecture diagram for an academic paper (Chinese labels). White background, flat design style, clear structure with rounded-corner rectangles and directional arrows.
 
-**并行特征提取层**位于架构图上部，以一段输入视频（统一为150帧、25fps）作为公共起点，向下分出五路独立并行的特征提取通道：
+Layout: top-to-bottom flow, divided into two main sections by a horizontal dashed line.
 
-1. **视觉特征通道**：输入视频帧首先经RetinaFace人脸检测器定位并裁剪出224×224像素的人脸区域，随后按ImageNet通道均值与标准差进行归一化，再送入去除全连接分类层的ResNet101深度残差网络，最终通过全局平均池化（GAP）输出每帧2048维的视觉语义特征向量，形成150×2048维的视觉特征矩阵。
+**Top section — "并行特征提取层" (Parallel Feature Extraction Layer):**
 
-2. **音频特征通道**：通过FFmpeg从视频中分离音频流并转换为16kHz单声道PCM波形，经Wav2Vec2特征提取器预处理后送入HuBERT-Base自监督语音模型（含7层CNN编码器和12层Transformer编码器），提取最后一层隐藏状态得到768维音频嵌入；由于HuBERT输出的时间步数与视频帧数不一致，采用线性插值将音频特征对齐至150个时间步，最终形成150×768维的音频特征矩阵。
+At the very top center, place a single rounded rectangle labeled "输入视频 (150帧, 25fps)" in blue fill. From this box, draw five downward arrows fanning out to five parallel vertical processing pipelines, each in a different color:
 
-3. **面部关键点特征通道**：对每帧图像调用MediaPipe Face Mesh模型检测468个三维面部关键点坐标（检测置信度阈值0.5），将每帧的$(x, y, z)$坐标展平为1404维（468×3）向量，未检测到人脸的帧以零向量填充，最终形成150×1404维的关键点特征矩阵。
+Pipeline 1 (green): A vertical chain of rounded boxes connected by downward arrows:
+"视频帧" → "RetinaFace 人脸检测" → "224×224 裁剪 + ImageNet归一化" → "ResNet101 (去FC层)" → "GAP" → a box labeled "2048维/帧" at the bottom.
 
-4. **面部动作单元（AU）特征通道**：基于第三通道已有的468个面部关键点，通过精心设计的关键点对之间的欧氏距离与逆距离关系，计算17个核心面部动作单元的激活强度值，并进行最大值归一化映射至$[0, 1]$区间，最终形成150×17维的动作单元特征矩阵。
+Pipeline 2 (orange): A vertical chain:
+"FFmpeg 分离音频" → "16kHz PCM" → "HuBERT-Base" → "768维" → "线性插值对齐" → a box labeled "768维/帧".
 
-5. **SyncNet唇形同步通道**：将音视频同步送入预训练SyncNet网络，输出同步置信度与帧偏移量，置信度经Sigmoid非线性映射转换为$[0, 5]$区间的唇形同步分数；该分数为视频级标量指标，不参与后续时序建模，仅作为辅助参考信息。
+Pipeline 3 (purple): A vertical chain:
+"MediaPipe Face Mesh" → "468个3D关键点" → "展平" → a box labeled "1404维/帧".
 
-五路通道汇聚后的原始特征总维度为4237维（2048+768+1404+17）。
+Pipeline 4 (red): A vertical chain:
+"关键点几何距离" → "17个AU强度" → "最大值归一化" → a box labeled "17维/帧". Draw a small dashed arrow from Pipeline 3's "468个3D关键点" box sideways into this pipeline's first box, showing the dependency.
 
-**特征预处理与降维层**位于架构图下部，对上述四类帧级时序特征（不含SyncNet标量指标）依次执行三步处理：（1）**缺失值中位数插补**——针对特征提取过程中产生的NaN值（主要存在于视觉特征，约2,445个），逐维度以非缺失值的中位数进行填充；（2）**Z-score标准化**——对每类模态特征独立计算训练集上各维度的均值与标准差，将所有特征变换为零均值、单位方差的标准分布，消除跨模态的数值尺度差异；（3）**PCA主成分分析降维**——对各模态分别进行PCA降维（视觉特征2048→100维，保留方差≥95%；音频特征768→200维，保留方差≥95%；关键点特征1404→50维，保留方差≥85%；动作单元特征17维不降维），总维度从4237维压缩至367维，降维率达91.3%。
+Pipeline 5 (gray, slightly separated to the right with a dashed border): A vertical chain:
+"SyncNet" → "同步置信度 + 偏移量" → "Sigmoid映射" → a box labeled "[0,5]分数 (视频级)". Add a small annotation "(辅助参考，不参与时序建模)".
 
-最终输出为四组经标准化与降维的时序特征矩阵（总维度367维），作为下游跨模态Transformer融合编码模块的输入。
+Below pipelines 1–4, merge their bottom output boxes with four converging arrows into a single wide box labeled "原始特征拼接: 4237维 (2048+768+1404+17)".
+
+**Bottom section — "特征预处理与降维层" (Feature Preprocessing & Dimensionality Reduction Layer):**
+
+Below the dashed dividing line, draw a left-to-right horizontal processing chain of three rounded boxes connected by arrows:
+Box 1 (light yellow): "NaN中位数插补"
+Box 2 (light blue): "Z-score标准化"
+Box 3 (light green): "PCA降维"
+
+Next to Box 3, place a small table or annotation box showing the per-modality PCA configuration:
+"视觉: 2048→100维 (≥95%方差)"
+"音频: 768→200维 (≥95%方差)"
+"关键点: 1404→50维 (≥85%方差)"
+"AU: 17维 (不降维)"
+
+From Box 3, draw a final downward arrow into a prominent output box at the very bottom, labeled "标准化特征输出: 367维 (100+200+50+17)", with a subtitle "→ 送入跨模态Transformer融合编码模块".
+
+Overall style: crisp vector-style lines, soft pastel fill colors, Chinese text labels in black, consistent font size, no 3D effects, suitable for insertion into an academic thesis.
 
 ---
 
 ## 图3-3 多模态融合Transformer时序编码与多任务预测模块架构图
 
-该图展示了从降维后的多模态特征输入到五维质量评分输出的完整融合编码与多任务预测流程，整体架构自左至右依次包含"模态特征嵌入层"、"跨模态融合与位置编码层"、"Transformer时序编码层"和"多任务预测层"四个核心阶段。
+Generate a clean, professional technical architecture diagram for an academic paper (Chinese labels). White background, flat design style, clear left-to-right flow layout with rounded-corner rectangles and directional arrows.
 
-**模态特征嵌入层**位于架构图左侧，接收四路经PCA降维后维度各异的时序特征输入（视觉100维、音频200维、关键点50维、AU 17维），通过四路独立并行的两层前馈嵌入网络将异构特征统一映射至相同的$d_{\text{embed}}$维语义空间（优化配置下为512维）。各嵌入分支的结构为"Linear→ReLU→Dropout(0.3)→Linear"，其中视觉分支隐藏层维度为256，音频与关键点分支隐藏层维度为512，AU分支隐藏层维度为128，隐藏层维度的差异化设计与各模态输入维度的量级相匹配。嵌入映射完成后，四路特征在时间维度上对齐为统一的150×512维表示。随后，为每类模态分别叠加一个可学习的模态嵌入偏置向量（类似BERT的Segment Embedding），使模型能够在后续融合过程中区分不同模态的语义来源。
+Layout: left-to-right flow, divided into four vertical stages separated by thin dashed vertical lines.
 
-**跨模态融合与位置编码层**位于架构图中左侧，将加入模态嵌入标识后的四组特征沿模态维度进行均值池化融合，生成统一的150×512维融合特征序列。该融合策略保证了各模态的等权贡献，同时融合后的每个时间步向量均包含了四类模态的混合语义信息，且各模态成分通过模态嵌入保留了来源标识。在融合特征之上，叠加一组可学习的位置编码参数矩阵（$\mathbf{P} \in \mathbb{R}^{150 \times 512}$），为Transformer编码器注入时间步的先后顺序信息。模态嵌入与位置编码协同工作，前者提供模态身份标识，后者提供时序位置标识。
+**Stage 1 (leftmost) — "模态特征嵌入层" (Modal Feature Embedding Layer):**
 
-**Transformer时序编码层**位于架构图中部，是整个模块的核心。加入位置编码后的融合特征序列被送入$L$层堆叠的标准Transformer编码器（优化配置：$L=6$层，$H=16$头，每头维度$d_k=32$，前馈维度$d_{\text{ff}}=2048$，Dropout率0.1）。每层编码器内部由多头自注意力（MHSA）子层和前馈神经网络（FFN）子层串联构成，两个子层均配备残差连接与层归一化。多头自注意力机制在时间步维度上进行全局自注意力计算，隐式地捕捉四类模态信息的跨时间步联合演化规律与长程时序依赖关系。经过6层Transformer深度编码后，输出序列通过全局平均池化沿时间维度压缩，得到固定的512维全局融合特征向量$\mathbf{z}$，该向量编码了四类模态特征在整个视频时序上的全局交互信息。
+On the far left, place four horizontally aligned input boxes in different colors, stacked vertically:
+- Green box: "视觉特征 (150×100)"
+- Orange box: "音频特征 (150×200)"
+- Purple box: "关键点特征 (150×50)"
+- Red box: "AU特征 (150×17)"
 
-**多任务预测层**位于架构图右侧，基于共享的512维融合特征向量$\mathbf{z}$，分出五个独立并行的任务特定预测头，分别对应唇形同步（lip_sync）、表情自然度（expression）、音频质量（audio_quality）、跨模态一致性（cross_modal）和整体感知质量（overall）五个评估维度。每个预测头采用相同的三层前馈网络结构但拥有独立参数：$\text{Linear}(512, 256) \rightarrow \text{ReLU} \rightarrow \text{Dropout}(0.3) \rightarrow \text{Linear}(256, 128) \rightarrow \text{ReLU} \rightarrow \text{Linear}(128, 1) \rightarrow \text{Sigmoid}$，Sigmoid激活函数将输出约束在$[0, 1]$范围内，再通过仿射变换$\hat{y} = 1.0 + 4.0 \times \sigma(\cdot)$映射至$[1.0, 5.0]$的评分区间。五个预测头共享Transformer编码器参数但各自拥有独立的预测层参数，既利用了共享表示中的跨任务互补信息，又通过独立参数适应了各任务的特异性需求。
+Each box has a rightward arrow pointing to its own embedding sub-network block. Each embedding block is a small vertical chain of layers shown inside a rounded dashed border:
+- Green path: "Linear(100,256) → ReLU → Dropout(0.3) → Linear(256,512)"
+- Orange path: "Linear(200,512) → ReLU → Dropout(0.3) → Linear(512,512)"
+- Purple path: "Linear(50,512) → ReLU → Dropout(0.3) → Linear(512,512)"
+- Red path: "Linear(17,128) → ReLU → Dropout(0.3) → Linear(128,512)"
 
-**训练优化机制**标注于架构图底部，包含两个关键组件：（1）**动态任务权重策略**——支持三种可切换的权重调节方案：基于先验知识的固定权重、基于同方差不确定性的自适应加权（通过可学习参数$\sigma_k$自动调节各任务相对权重）和基于梯度范数均衡的GradNorm策略（含5轮热身期的冷启动保护）；（2）**标签掩码机制**——针对数据集中部分评估维度存在的标签缺失情况（表情自然度72.8%、音频质量77.8%、跨模态一致性和整体感知质量72.6%），通过二值掩码向量在损失计算中排除无效样本，确保仅有效标签参与梯度回传。多任务联合损失定义为各任务掩码加权均方误差之和$\mathcal{L}_{\text{total}} = \sum_{k=1}^{5} w_k \cdot \mathcal{L}_k$，由动态权重策略自适应控制各任务的优化资源分配。
+Each embedding block outputs a box labeled "150×512维". Below each output box, draw a small "+" symbol with a circle icon labeled "模态嵌入" (Modality Embedding), indicating the addition of a learnable modality embedding vector.
+
+**Stage 2 — "跨模态融合与位置编码层" (Cross-Modal Fusion & Positional Encoding Layer):**
+
+The four "150×512维" outputs (each now with modality embedding) converge via four arrows into a single operation box labeled "均值池化融合 (Mean Pooling)", producing one box labeled "融合特征 (150×512)".
+
+Below this box, draw a "+" symbol connecting to a box labeled "可学习位置编码 P ∈ R^{150×512}" (Learnable Positional Encoding). The result flows right into a single box labeled "编码输入 (150×512)".
+
+**Stage 3 (center) — "Transformer时序编码层" (Transformer Temporal Encoding Layer):**
+
+Draw a large vertically elongated rounded rectangle representing the Transformer Encoder stack. Inside this rectangle, show 6 identical stacked layers from bottom to top, each layer rendered as a smaller rectangle containing two sub-blocks:
+- Sub-block A: "多头自注意力 (16头, d_k=32)" with a residual skip-connection arrow arching around it and a "LayerNorm" label.
+- Sub-block B: "前馈网络 FFN (d_ff=2048)" with a residual skip-connection arrow arching around it and a "LayerNorm" label.
+Label the full stack "6层 Transformer Encoder" along its left side. Mark "Dropout=0.1" as a small annotation.
+
+From the top of the Transformer stack, draw an arrow into a box labeled "全局平均池化 (Global Average Pooling)", which outputs a single box labeled "融合向量 z (512维)".
+
+**Stage 4 (rightmost) — "多任务预测层" (Multi-Task Prediction Layer):**
+
+From the "融合向量 z (512维)" box, fan out five rightward arrows, each leading to an independent prediction head. The five heads are vertically stacked, each shown as a horizontal chain of small boxes in the same color:
+- Head 1 (blue): "512 → 256 → ReLU → 256 → 128 → ReLU → 128 → 1 → Sigmoid → [1.0, 5.0]", final output label: "唇形同步 (lip_sync)"
+- Head 2 (green): same structure, final output label: "表情自然度 (expression)"
+- Head 3 (orange): same structure, final output label: "音频质量 (audio_quality)"
+- Head 4 (purple): same structure, final output label: "跨模态一致性 (cross_modal)"
+- Head 5 (red): same structure, final output label: "整体感知质量 (overall)"
+
+Each head ends with a small output circle showing a score value like "3.8" as an example.
+
+**Bottom annotation area — "训练优化机制" (Training Optimization Mechanism):**
+
+At the very bottom of the diagram, spanning the full width, place a light gray background band containing two annotation boxes side by side:
+- Left box (light yellow border): "动态任务权重策略" with three items listed: "① 固定权重", "② 不确定性自适应加权 (σ_k)", "③ GradNorm梯度均衡 (含5轮热身期)"
+- Right box (light blue border): "标签掩码机制" with the note: "有效标签率: lip_sync 100% | expression 72.8% | audio_quality 77.8% | cross_modal 72.6% | overall 72.6%"
+Between these two boxes, place a formula: "L_total = Σ(k=1 to 5) w_k · L_k"
+
+Overall style: crisp vector-style lines, soft pastel fill colors for each modality (consistent color coding throughout), Chinese text labels in black, consistent font size, no 3D effects, suitable for insertion into an academic thesis. The diagram should be wide (landscape orientation) to accommodate the left-to-right four-stage layout.
