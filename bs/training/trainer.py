@@ -495,6 +495,7 @@ class Trainer:
             cross_modal_loss = losses['cross_modal']
             overall_loss = losses['overall']
             # 热身期使用均匀权重，避免GradNorm初期的权重分配震荡
+            # 注意：trainer.py使用1-based epoch，故条件为 <= warmup_epochs
             if self.current_epoch <= self.warmup_epochs:
                 active_weights = {task: 1.0 for task in self.task_weights}
             else:

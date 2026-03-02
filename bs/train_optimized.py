@@ -256,6 +256,7 @@ class Trainer:
         total_loss = 0
         losses = {}
         # 热身期使用均匀权重，避免GradNorm初期的权重分配震荡
+        # 注意：train_optimized.py使用0-based epoch，故条件为 < warmup_epochs
         if self.current_epoch < self.warmup_epochs:
             task_weights = {task: 1.0 for task in self.model.task_weights}
         else:
