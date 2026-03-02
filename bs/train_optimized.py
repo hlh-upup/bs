@@ -99,6 +99,14 @@ class OptimizedMTLModel(nn.Module):
             )
         })
         
+        # 可学习的模态嵌入（Modality Embedding），使Transformer能够识别不同模态的语义来源
+        self.modality_embeddings = nn.ParameterDict({
+            'visual': nn.Parameter(torch.randn(1, 1, embed_dim)),
+            'audio': nn.Parameter(torch.randn(1, 1, embed_dim)),
+            'keypoint': nn.Parameter(torch.randn(1, 1, embed_dim)),
+            'au': nn.Parameter(torch.randn(1, 1, embed_dim))
+        })
+        
         # 位置编码
         self.pos_encoding = nn.Parameter(torch.randn(150, embed_dim))
         
@@ -171,18 +179,20 @@ class OptimizedMTLModel(nn.Module):
         }
     
     def forward(self, features):
-        # 特征嵌入
+        # 特征嵌入 + 模态嵌入
         embedded_features = []
         for key, embedder in self.feature_embedders.items():
             if key in features:
                 x = embedder(features[key])  # (batch, seq, embed_dim)
+                # 加上可学习的模态嵌入，使Transformer能够区分不同模态来源
+                x = x + self.modality_embeddings[key]
                 embedded_features.append(x)
         
         # 特征融合
         fused = torch.stack(embedded_features, dim=1).mean(dim=1)  # (batch, seq, embed_dim)
         
         # 添加位置编码
-        seq_len = fused.size(3)
+        seq_len = fused.size(1)
         fused = fused + self.pos_encoding[:seq_len]
         
         # Transformer处理
@@ -201,13 +211,18 @@ class OptimizedMTLModel(nn.Module):
 class Trainer:
     """优化的训练器"""
     
-    def __init__(self, model, train_loader, val_loader, device, output_dir):
+    def __init__(self, model, train_loader, val_loader, device, output_dir, warmup_epochs=5):
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # GradNorm热身期配置：在热身期内将各任务权重固定为1.0，
+        # 待梯度方差稳定后再开启动态调整，避免训练初期权重分配震荡
+        self.warmup_epochs = warmup_epochs
+        self.current_epoch = 0
         
         # 优化器
         self.optimizer = AdamW(
@@ -233,10 +248,18 @@ class Trainer:
         self.best_val_loss = float('inf')
     
     def compute_loss(self, predictions, targets, valid_masks):
-        """计算加权多任务损失 (修复广播导致的维度问题)"""
+        """计算加权多任务损失 (修复广播导致的维度问题)
+        
+        在热身期（warmup_epochs）内，各任务权重固定为1.0，
+        待梯度方差稳定后再使用模型配置的动态任务权重。
+        """
         total_loss = 0
         losses = {}
-        task_weights = self.model.task_weights
+        # 热身期使用均匀权重，避免GradNorm初期的权重分配震荡
+        if self.current_epoch < self.warmup_epochs:
+            task_weights = {task: 1.0 for task in self.model.task_weights}
+        else:
+            task_weights = self.model.task_weights
         for task, pred in predictions.items():
             if task in targets and task in valid_masks:
                 mask = valid_masks[task]
@@ -363,6 +386,15 @@ class Trainer:
         
         for epoch in range(epochs):
             start_time = time.time()
+            
+            # 更新当前epoch（用于热身期判断）
+            self.current_epoch = epoch
+            
+            # 热身期提示
+            if epoch < self.warmup_epochs:
+                logger.info(f"Epoch {epoch+1}: 热身期（{epoch+1}/{self.warmup_epochs}），任务权重固定为1.0")
+            elif epoch == self.warmup_epochs:
+                logger.info(f"Epoch {epoch+1}: 热身期结束，切换到动态任务权重")
             
             # 训练
             train_loss, train_task_losses = self.train_epoch()
