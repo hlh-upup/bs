@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>视频评分</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            font-size: 16px;
+        }
+        h1 {
+            text-align: center;
+            font-size: 24px;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .video-card {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            background-color: #f9f9f9;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            max-height: 300px;
+            object-fit: contain;
+            background-color: #000;
+            margin-bottom: 10px;
+        }
+        .rating-group {
+            margin: 10px 0;
+        }
+        .rating-group label {
+            font-size: 16px;
+            margin-right: 10px;
+            display: inline-block;
+            width: auto;
+        }
+        .rating-group input {
+            width: 60px;
+            padding: 5px;
+            font-size: 14px;
+            margin-left: 5px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>视频评分</h1>
+    <form method="POST" action="/submit_ratings">
+        <input type="hidden" name="video_count" value="{{ video_files|length }}">
+        <input type="hidden" name="folder_name" value="{{ folder }}">
+
+        <div class="container">
+            {% for video_file in video_files %}
+            <div class="video-card">
+                <input type="hidden" name="video_name_{{ loop.index }}" value="{{ video_file }}">
+                <video controls>
+                    <source src="{{ url_for('videos', folder=folder, filename=video_file) }}" type="video/mp4">
+                </video>
+                <div class="rating-group">
+                    <label for="lip_sync_{{ loop.index }}">口型同步效果：</label>
+                    <input type="number" id="lip_sync_{{ loop.index }}" name="lip_sync_{{ loop.index }}" min="1" max="7">
+                </div>
+                <div class="rating-group">
+                    <label for="expression_naturalness_{{ loop.index }}">表情自然度：</label>
+                    <input type="number" id="expression_naturalness_{{ loop.index }}" name="expression_naturalness_{{ loop.index }}" min="1" max="7">
+                </div>
+                <div class="rating-group">
+                    <label for="overall_{{ loop.index }}">总体评价：</label>
+                    <input type="number" id="overall_{{ loop.index }}" name="overall_{{ loop.index }}" min="1" max="7">
+                </div>
+                <div class="rating-group">
+                    <label for="audio_quality_{{ loop.index }}">音频质量：</label>
+                    <input type="number" id="audio_quality_{{ loop.index }}" name="audio_quality_{{ loop.index }}" min="1" max="7">
+                </div>
+                <div class="rating-group">
+                    <label for="cross_modal_consistency_{{ loop.index }}">跨模态一致性：</label>
+                    <input type="number" id="cross_modal_consistency_{{ loop.index }}" name="cross_modal_consistency_{{ loop.index }}" min="1" max="7">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="footer">
+            <button type="submit">保存评分</button>
+        </div>
+    </form>
+</body>
+</html>
