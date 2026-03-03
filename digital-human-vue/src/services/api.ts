@@ -102,6 +102,50 @@ export interface TaskRequest {
   Task: string
 }
 
+export interface VideoQualityMetric {
+  key: string
+  label: string
+  score: number
+}
+
+export interface VideoQualityEvalResponse {
+  result: string
+  mode?: string
+  engine?: {
+    name: string
+    display_name?: string
+    integration?: 'mock' | 'real' | string
+    connected?: boolean
+    running?: boolean
+    trace_id?: string
+  }
+  video?: {
+    name: string
+    frame_count?: number
+    sampled_fps?: number
+  }
+  overall?: {
+    score: number
+    grade: string
+  }
+  metrics?: VideoQualityMetric[]
+  pipeline?: {
+    status?: string
+    total_cost_ms?: number
+    steps?: Array<{
+      id: string
+      name: string
+      status: string
+      cost_ms: number
+    }>
+  }
+  notice?: string
+  summary?: string
+  suggestions?: string[]
+  generated_at?: string
+  error?: string
+}
+
 export interface ModelRequest {
   User: string
   Index?: string
@@ -332,6 +376,20 @@ class DigitalHumanApiService {
       responseType: 'blob',
     })
     return response.data
+  }
+
+  async getVideoQualityEval(request: {
+    User: string
+    Video_Name?: string
+  }): Promise<{ success: boolean; data?: VideoQualityEvalResponse; error?: string }> {
+    const response = await api.post<VideoQualityEvalResponse>('/Get_Video_Quality_Eval', request)
+    if (response.data?.result === 'Success') {
+      return { success: true, data: response.data }
+    }
+    return {
+      success: false,
+      error: response.data?.error || '获取视频质量评测失败',
+    }
   }
 
   // 获取生成的视频列表

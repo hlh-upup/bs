@@ -52,7 +52,18 @@ export const useAuthStore = defineStore('auth', {
     checkAuth() {
       const savedUser = localStorage.getItem('user')
       if (savedUser) {
-        this.user = JSON.parse(savedUser)
+        try {
+          const parsed = JSON.parse(savedUser)
+          if (parsed && typeof parsed.username === 'string' && parsed.isLoggedIn === true) {
+            this.user = parsed
+          } else {
+            this.user = null
+            localStorage.removeItem('user')
+          }
+        } catch {
+          this.user = null
+          localStorage.removeItem('user')
+        }
       }
     },
   },

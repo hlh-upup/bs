@@ -559,6 +559,86 @@
         </div>
       </div>
     </div>
+
+    <!-- 视频质量评测弹窗（生成完成后展示） -->
+    <div v-if="showQualityEvalModal" class="quality-eval-overlay" @click="closeQualityEvalModal">
+      <div class="quality-eval-modal" @click.stop>
+        <div class="quality-eval-header">
+          <h3>视频质量评测结果</h3>
+          <button type="button" class="quality-close-btn" @click="closeQualityEvalModal">×</button>
+        </div>
+
+        <div v-if="qualityEvalLoading" class="quality-eval-loading">评测结果加载中...</div>
+
+        <div v-else-if="qualityEvalError" class="quality-eval-error">
+          {{ qualityEvalError }}
+        </div>
+
+        <div v-else-if="qualityEvalData" class="quality-eval-content">
+          <div class="quality-bs-banner">
+            <div class="quality-bs-title">
+              <span class="quality-running-dot"></span>
+              视频质量评价结果
+            </div>
+            <div class="quality-bs-tags">
+              <span class="quality-tag">评价模型</span>
+              <span class="quality-tag">Trace: {{ qualityEvalData.engine?.trace_id || '-' }}</span>
+            </div>
+          </div>
+
+          <div class="quality-overall-card">
+            <div class="quality-overall-label">总分</div>
+            <div class="quality-overall-score">{{ qualityEvalData.overall?.score?.toFixed(2) ?? '-' }}</div>
+            <div class="quality-overall-grade">等级：{{ qualityEvalData.overall?.grade ?? '-' }}</div>
+          </div>
+
+          <div class="quality-video-meta" v-if="qualityEvalData.video">
+            <span>视频：{{ qualityEvalData.video?.name || '-' }}</span>
+            <span>抽样帧：{{ qualityEvalData.video?.frame_count ?? '-' }}</span>
+            <span>评测FPS：{{ qualityEvalData.video?.sampled_fps ?? '-' }}</span>
+          </div>
+
+          <div class="quality-metrics-grid">
+            <div
+              v-for="metric in qualityEvalData.metrics || []"
+              :key="metric.key"
+              class="quality-metric-item"
+            >
+              <span class="metric-label">{{ metric.label }}</span>
+              <span class="metric-score">{{ metric.score.toFixed(2) }}</span>
+            </div>
+          </div>
+
+          <div class="quality-pipeline" v-if="(qualityEvalData.pipeline?.steps || []).length > 0">
+            <h4>评测执行链路</h4>
+            <div class="pipeline-steps">
+              <div v-for="step in qualityEvalData.pipeline?.steps || []" :key="step.id" class="pipeline-step-item">
+                <span class="pipeline-step-name">{{ step.name }}</span>
+                <span class="pipeline-step-status">{{ step.status }}</span>
+                <span class="pipeline-step-cost">{{ step.cost_ms }} ms</span>
+              </div>
+            </div>
+            <div class="pipeline-total">总耗时：{{ qualityEvalData.pipeline?.total_cost_ms ?? '-' }} ms</div>
+          </div>
+
+          <div class="quality-summary" v-if="qualityEvalData.summary">
+            <h4>评测结论</h4>
+            <p>{{ qualityEvalData.summary }}</p>
+          </div>
+
+          <div class="quality-suggestions" v-if="(qualityEvalData.suggestions || []).length > 0">
+            <h4>优化建议</h4>
+            <ul>
+              <li v-for="(item, idx) in qualityEvalData.suggestions || []" :key="idx">{{ item }}</li>
+            </ul>
+          </div>
+
+          <div class="quality-meta">
+            <span>生成时间：{{ qualityEvalData.generated_at || '-' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -568,6 +648,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDigitalHumanStore } from '@/stores/digitalHuman'
 import { digitalHumanApi } from '@/services/api'
+import type { VideoQualityEvalResponse } from '@/services/api'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -589,6 +670,10 @@ const teacherVideoFile = ref<File | null>(null)
 const pptFile = ref<File | null>(null)
 const pptRemakes = ref('')
 const isGenerating = ref(false)
+const showQualityEvalModal = ref(false)
+const qualityEvalLoading = ref(false)
+const qualityEvalError = ref('')
+const qualityEvalData = ref<VideoQualityEvalResponse | null>(null)
 
 // 配置选项
 const digitalMotion = ref<'sad' | 'wav'>('sad')
@@ -865,7 +950,7 @@ const generateVideo = async () => {
     const success = await digitalHumanStore.generateDigitalHumanAdvanced(authStore.currentUser)
     if (success) {
       currentStep.value = 4
-      // 可以跳转到视频列表或显示成功消息
+      await fetchAndShowQualityEval(authStore.currentUser)
     }
   } catch (error) {
     console.error('视频生成失败:', error)
@@ -987,6 +1072,60 @@ const previewCartoonize = async () => {
 const clearCartoonPreview = () => {
   cartoonPreviewUrl.value = ''
   cartoonInfo.value = null
+}
+
+const uploadPreviewLoading = ref(false)
+const useCartoonPreview = async () => {
+  if (!authStore.currentUser || !cartoonPreviewUrl.value) {
+    return
+  }
+  try {
+    uploadPreviewLoading.value = true
+    const raw = cartoonPreviewUrl.value.split(',')[1]
+    const ok = await digitalHumanApi.sendImage({
+      User: authStore.currentUser,
+      Img: raw,
+    })
+    if (ok) {
+      digitalHumanStore.setPersonConfigured(true)
+      alert('已将卡通化预览设为数字人形象')
+    } else {
+      alert('设置形象失败，请重试')
+    }
+  } catch (e) {
+    console.error('[useCartoonPreview] error', e)
+    alert('设置形象失败，请检查后端服务')
+  } finally {
+    uploadPreviewLoading.value = false
+  }
+}
+
+const closeQualityEvalModal = () => {
+  showQualityEvalModal.value = false
+}
+
+const fetchAndShowQualityEval = async (user: string) => {
+  showQualityEvalModal.value = true
+  qualityEvalLoading.value = true
+  qualityEvalError.value = ''
+  qualityEvalData.value = null
+
+  try {
+    const result = await digitalHumanApi.getVideoQualityEval({
+      User: user,
+      Video_Name: 'last_video.mp4',
+    })
+    if (result.success && result.data) {
+      qualityEvalData.value = result.data
+    } else {
+      qualityEvalError.value = result.error || '评测暂不可用'
+    }
+  } catch (error) {
+    console.error('[fetchAndShowQualityEval] error', error)
+    qualityEvalError.value = '评测服务请求失败，请稍后重试'
+  } finally {
+    qualityEvalLoading.value = false
+  }
 }
 
 // 语音合成试听（快速）
@@ -1120,6 +1259,246 @@ const quickSynthesizeTest = async () => {
   gap: var(--spacing-4xl);
   max-width: none;
   width: 100%;
+}
+
+.quality-eval-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  padding: 16px;
+}
+
+.quality-eval-modal {
+  width: min(760px, 96vw);
+  max-height: 88vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-xl);
+}
+
+.quality-eval-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+}
+
+.quality-eval-header h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  color: var(--color-gray-900);
+}
+
+.quality-close-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--color-gray-300);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--color-gray-700);
+  cursor: pointer;
+}
+
+.quality-eval-loading,
+.quality-eval-error {
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-gray-50);
+  color: var(--color-secondary);
+}
+
+.quality-overall-card {
+  background: var(--gradient-primary);
+  color: #fff;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.quality-bs-banner {
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  background: #f8fafc;
+  padding: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.quality-bs-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: var(--font-semibold);
+  color: var(--color-gray-900);
+}
+
+.quality-running-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
+}
+
+.quality-bs-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.quality-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  background: #e2e8f0;
+  color: var(--color-gray-700);
+}
+
+.quality-bs-note {
+  margin-top: 8px;
+  color: var(--color-secondary);
+  font-size: var(--text-sm);
+}
+
+.quality-video-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: var(--spacing-md);
+  color: var(--color-secondary);
+  font-size: var(--text-sm);
+}
+
+.quality-pipeline {
+  margin-bottom: var(--spacing-md);
+}
+
+.quality-pipeline h4 {
+  margin: 0 0 8px 0;
+  color: var(--color-gray-900);
+  font-size: var(--text-base);
+}
+
+.pipeline-steps {
+  display: grid;
+  gap: 8px;
+}
+
+.pipeline-step-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.pipeline-step-name {
+  color: var(--color-gray-800);
+  font-size: var(--text-sm);
+}
+
+.pipeline-step-status {
+  color: var(--color-success);
+  font-size: var(--text-xs);
+}
+
+.pipeline-step-cost {
+  color: var(--color-secondary);
+  font-size: var(--text-xs);
+}
+
+.pipeline-total {
+  margin-top: 8px;
+  color: var(--color-secondary);
+  font-size: var(--text-sm);
+}
+
+.quality-overall-label {
+  font-size: var(--text-sm);
+  opacity: 0.9;
+}
+
+.quality-overall-score {
+  font-size: 40px;
+  font-weight: var(--font-bold);
+  line-height: 1.2;
+}
+
+.quality-overall-grade {
+  font-size: var(--text-base);
+}
+
+.quality-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.quality-metric-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.metric-label {
+  color: var(--color-secondary);
+  font-size: var(--text-sm);
+}
+
+.metric-score {
+  color: var(--color-gray-900);
+  font-weight: var(--font-semibold);
+}
+
+.quality-summary,
+.quality-suggestions {
+  margin-bottom: var(--spacing-md);
+}
+
+.quality-summary h4,
+.quality-suggestions h4 {
+  margin: 0 0 8px 0;
+  color: var(--color-gray-900);
+  font-size: var(--text-base);
+}
+
+.quality-summary p {
+  margin: 0;
+  color: var(--color-secondary);
+  line-height: 1.6;
+}
+
+.quality-suggestions ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--color-secondary);
+}
+
+.quality-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--color-gray-200);
+  padding-top: var(--spacing-sm);
+  color: var(--color-secondary);
+  font-size: var(--text-xs);
 }
 
 /* 状态网格 */

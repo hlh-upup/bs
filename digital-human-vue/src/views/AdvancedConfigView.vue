@@ -12,5 +12,7 @@ import AdvancedVideoConfig from '@/components/AdvancedVideoConfig.vue'
 <style scoped>
 .advanced-config-content {
   width: 100%;
+  min-height: 100%;
+  pointer-events: auto;
 }
 </style>

@@ -31,7 +31,6 @@
                 <input
                   type="checkbox"
                   v-model="slide.enabled"
-                  @change="updateSlideConfig(index, 'enabled', $event.target.checked)"
                 />
                 <span class="switch-slider"></span>
               </label>
@@ -43,7 +42,6 @@
               <label>位置:</label>
               <select
                 v-model="slide.position"
-                @change="updateSlideConfig(index, 'position', $event.target.value)"
                 class="position-select"
               >
                 <option value="bottom-right">右下角</option>
@@ -64,7 +62,6 @@
                   min="50"
                   max="150"
                   v-model="slide.size"
-                  @input="updateSlideConfig(index, 'size', parseInt($event.target.value))"
                   class="size-slider"
                 />
                 <span class="size-value">{{ slide.size }}%</span>
@@ -115,7 +112,7 @@
             <div
               class="upload-area"
               :class="{ 'has-video': globalConfig.motionVideo }"
-              @click="$refs.videoInput.click()"
+              @click="triggerVideoSelect"
             >
               <div v-if="!globalConfig.motionVideo" class="upload-placeholder">
                 <svg viewBox="0 0 24 24" fill="none">
@@ -202,7 +199,7 @@
           <div class="mock-slide">
             <div class="slide-content">
               <h4>PPT页面示例</h4>
-              <p>这是示例PPT页面内容，数字人将出现在{{ getEnabledSlidesCount() }}个页面中</p>
+              <p>这是示例PPT页面内容，数字人将出现在{{ getEnabledSlidesCount }}个页面中</p>
             </div>
             <div v-if="getPreviewSlide()" class="digital-person" :style="getDigitalPersonStyle()">
               <div class="person-avatar">👤</div>
@@ -214,7 +211,7 @@
         </div>
 
         <div class="preview-controls">
-          <button class="preview-btn" @click="testConfig">
+          <button class="preview-btn" :disabled="isTesting" @click="testConfig">
             <svg viewBox="0 0 24 24" fill="none">
               <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" />
               <path
@@ -225,8 +222,16 @@
                 stroke-linejoin="round"
               />
             </svg>
-            <span>测试配置</span>
+            <span>{{ isTesting ? '测试中...' : '测试配置' }}</span>
           </button>
+        </div>
+
+        <div v-if="testResult" class="test-result" :class="testResult.ok ? 'ok' : 'fail'">
+          <h4>{{ testResult.ok ? '测试通过' : '测试未通过' }}</h4>
+          <p>{{ testResult.message }}</p>
+          <ul v-if="testResult.details.length > 0">
+            <li v-for="(item, idx) in testResult.details" :key="idx">{{ item }}</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -270,7 +275,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 interface SlideConfig {
@@ -290,6 +295,10 @@ interface GlobalConfig {
 }
 
 const authStore = useAuthStore()
+const videoInput = ref<HTMLInputElement | null>(null)
+const runtimeVideoObjectUrl = ref<string>('')
+const isTesting = ref(false)
+const testResult = ref<{ ok: boolean; message: string; details: string[] } | null>(null)
 
 // 响应式数据
 const slideCount = ref(10) // 假设有10页PPT
@@ -357,6 +366,13 @@ onMounted(() => {
   loadConfiguration()
 })
 
+onBeforeUnmount(() => {
+  if (runtimeVideoObjectUrl.value) {
+    URL.revokeObjectURL(runtimeVideoObjectUrl.value)
+    runtimeVideoObjectUrl.value = ''
+  }
+})
+
 // 方法
 const loadConfiguration = () => {
   if (!authStore.currentUser) return
@@ -367,10 +383,23 @@ const loadConfiguration = () => {
 
     if (savedConfig) {
       const config = JSON.parse(savedConfig)
-      slideConfig.value = config.slideConfig || slideConfig.value
-      globalConfig.value = { ...globalConfig.value, ...config.globalConfig }
-      if (config.globalConfig.motionVideoUrl) {
-        globalConfig.value.motionVideoUrl = config.globalConfig.motionVideoUrl
+      if (Array.isArray(config.slideConfig)) {
+        slideConfig.value = config.slideConfig
+      }
+
+      const loadedGlobal = config.globalConfig || {}
+      globalConfig.value = {
+        ...globalConfig.value,
+        ...loadedGlobal,
+        motionVideo: null,
+        motionVideoUrl: '',
+      }
+
+      if (typeof loadedGlobal.motionVideoUrl === 'string') {
+        const isRemote = loadedGlobal.motionVideoUrl.startsWith('http://') || loadedGlobal.motionVideoUrl.startsWith('https://') || loadedGlobal.motionVideoUrl.startsWith('/')
+        if (isRemote) {
+          globalConfig.value.motionVideoUrl = loadedGlobal.motionVideoUrl
+        }
       }
     }
   } catch (error) {
@@ -386,7 +415,10 @@ const saveConfiguration = () => {
       slideConfig: slideConfig.value,
       globalConfig: {
         ...globalConfig.value,
-        motionVideoUrl: globalConfig.value.motionVideoUrl,
+        motionVideo: null,
+        motionVideoUrl: globalConfig.value.motionVideoUrl.startsWith('blob:')
+          ? ''
+          : globalConfig.value.motionVideoUrl,
       },
     }
 
@@ -423,49 +455,90 @@ const resetConfiguration = () => {
   }
 }
 
-const updateSlideConfig = (index: number, field: string, value: any) => {
-  if (slideConfig.value[index]) {
-    ;(slideConfig.value[index] as any)[field] = value
-  }
+const triggerVideoSelect = () => {
+  videoInput.value?.click()
 }
 
 const handleVideoSelect = (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0]
   if (file && file.type.startsWith('video/')) {
+    if (runtimeVideoObjectUrl.value) {
+      URL.revokeObjectURL(runtimeVideoObjectUrl.value)
+      runtimeVideoObjectUrl.value = ''
+    }
     globalConfig.value.motionVideo = file
     const url = URL.createObjectURL(file)
+    runtimeVideoObjectUrl.value = url
     globalConfig.value.motionVideoUrl = url
   }
 }
 
 const removeVideo = () => {
+  if (runtimeVideoObjectUrl.value) {
+    URL.revokeObjectURL(runtimeVideoObjectUrl.value)
+    runtimeVideoObjectUrl.value = ''
+  }
   globalConfig.value.motionVideo = null
   globalConfig.value.motionVideoUrl = ''
 }
 
 const testConfig = async () => {
   if (!authStore.currentUser) {
-    alert('请先登录')
+    testResult.value = {
+      ok: false,
+      message: '当前未登录，无法执行配置测试。',
+      details: [],
+    }
     return
   }
 
-  try {
-    console.log('测试配置:', {
-      slides: slideConfig.value,
-      global: globalConfig.value,
-    })
+  isTesting.value = true
 
-    // 这里可以调用API进行测试
-    alert('配置测试功能开发中...')
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 600))
+
+    const enabledCount = slideConfig.value.filter((slide) => slide.enabled).length
+    const details: string[] = []
+
+    if (enabledCount === 0) {
+      details.push('至少需要启用 1 页数字人配置。')
+    }
+
+    const outOfRange = slideConfig.value.some((slide) => slide.size < 50 || slide.size > 150)
+    if (outOfRange) {
+      details.push('检测到页面大小配置超出范围（50% - 150%）。')
+    }
+
+    if (globalConfig.value.digitalHumanModel === 'wav2lip' && !globalConfig.value.motionVideo) {
+      details.push('当前选择 Wav2Lip 模式，建议上传动作视频以获得更好效果。')
+    }
+
+    const ok = details.length === 0
+    testResult.value = {
+      ok,
+      message: ok
+        ? `配置可用：已启用 ${enabledCount} 页，参数范围正常，可进行后续生成。`
+        : '检测到配置项异常，请根据下列提示调整后再试。',
+      details,
+    }
   } catch (error) {
     console.error('测试配置失败:', error)
-    alert('测试配置失败，请重试')
+    testResult.value = {
+      ok: false,
+      message: '配置测试执行失败，请稍后重试。',
+      details: [],
+    }
+  } finally {
+    isTesting.value = false
   }
 }
 </script>
 
 <style scoped>
 .advanced-video-config {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
   padding: 32px;
   min-height: 600px;
 }
@@ -824,9 +897,53 @@ const testConfig = async () => {
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
+.preview-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .preview-btn svg {
   width: 16px;
   height: 16px;
+}
+
+.test-result {
+  margin-top: 16px;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.test-result.ok {
+  background: #ecfdf5;
+  border-color: #86efac;
+}
+
+.test-result.fail {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.test-result h4 {
+  margin: 0 0 6px 0;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.test-result p {
+  margin: 0;
+  font-size: 13px;
+  color: #475569;
+}
+
+.test-result ul {
+  margin: 8px 0 0 18px;
+  padding: 0;
+  color: #475569;
+  font-size: 13px;
 }
 
 .action-buttons {

@@ -78,5 +78,146 @@
 </script>
 
 <style scoped>
-/* 复用 DashboardView 中的欢迎样式类名，避免重复样式 */
+.welcome-dashboard {
+  padding: var(--spacing-xl);
+}
+
+.welcome-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-xl);
+  padding: var(--spacing-3xl);
+}
+
+.welcome-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-3xl);
+}
+
+.welcome-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-lg);
+  background: var(--gradient-primary);
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.welcome-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.welcome-header h2 {
+  margin: 0;
+  color: var(--color-gray-900);
+  font-size: var(--text-3xl);
+}
+
+.welcome-header p {
+  margin: 4px 0 0 0;
+  color: var(--color-secondary);
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-xl);
+}
+
+.action-card {
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  background: var(--color-white);
+  transition: all var(--transition-fast);
+}
+
+.action-card:hover {
+  border-color: var(--color-primary-light);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.action-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  color: var(--color-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.action-icon.primary {
+  background: var(--gradient-primary);
+}
+
+.action-icon.accent {
+  background: var(--gradient-accent);
+}
+
+.action-icon.success {
+  background: var(--gradient-success);
+}
+
+.action-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.action-card h3 {
+  margin: 0;
+  font-size: var(--text-xl);
+  color: var(--color-gray-900);
+}
+
+.action-card p {
+  margin: 8px 0 var(--spacing-lg) 0;
+  color: var(--color-secondary);
+  font-size: var(--text-sm);
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-gray-300);
+  text-decoration: none;
+  color: var(--color-gray-700);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+}
+
+.action-btn.primary,
+.action-btn.accent {
+  border-color: transparent;
+  color: var(--color-white);
+}
+
+.action-btn.primary {
+  background: var(--gradient-primary);
+}
+
+.action-btn.accent {
+  background: var(--gradient-accent);
+}
+
+@media (max-width: 960px) {
+  .quick-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .welcome-header h2 {
+    font-size: var(--text-2xl);
+  }
+}
 </style>

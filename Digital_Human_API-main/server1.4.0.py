@@ -33,6 +33,9 @@ import wave
 import struct
 import shutil
 import io
+import random
+import hashlib
+from datetime import datetime
 
 import numpy as np
 import cv2
@@ -212,6 +215,110 @@ def cartoonize_bilateral(img, bilateral_times=5, d=9, sigmaColor=150, sigmaSpace
     edges = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
     cartoon = cv2.bitwise_and(color, edges)
     return cartoon
+
+def _mock_video_quality_eval(user: str, video_name: str = "last_video.mp4"):
+    """生成稳定可复现的模拟视频质量评测结果（后续可替换为真实模型推理）。"""
+    seed_text = f"{user}|{video_name}|{datetime.now().strftime('%Y-%m-%d')}"
+    seed_num = int(hashlib.md5(seed_text.encode('utf-8')).hexdigest()[:8], 16)
+    rng = random.Random(seed_num)
+
+    lip_sync = round(rng.uniform(82.0, 96.0), 2)
+    visual_clarity = round(rng.uniform(80.0, 95.0), 2)
+    temporal_stability = round(rng.uniform(78.0, 94.0), 2)
+    audio_quality = round(rng.uniform(84.0, 97.0), 2)
+    expression_naturalness = round(rng.uniform(79.0, 95.0), 2)
+
+    overall = round(
+        0.30 * lip_sync
+        + 0.22 * visual_clarity
+        + 0.18 * temporal_stability
+        + 0.18 * audio_quality
+        + 0.12 * expression_naturalness,
+        2,
+    )
+
+    if overall >= 92:
+        grade = "A+"
+        summary = "整体质量优秀，可直接用于正式展示。"
+    elif overall >= 88:
+        grade = "A"
+        summary = "整体质量良好，细节可继续优化。"
+    elif overall >= 82:
+        grade = "B+"
+        summary = "质量可用，建议重点优化口型同步与时序稳定性。"
+    elif overall >= 75:
+        grade = "B"
+        summary = "质量一般，建议进行二次生成与参数调优。"
+    else:
+        grade = "C"
+        summary = "质量偏低，建议重新配置素材与推理参数。"
+
+    suggestions = []
+    if lip_sync < 88:
+        suggestions.append("提升口型同步：建议更换更清晰的人声输入或优化驱动音频。")
+    if visual_clarity < 86:
+        suggestions.append("提升画面清晰度：建议提高输入素材分辨率并开启增强器。")
+    if temporal_stability < 85:
+        suggestions.append("提升时序稳定性：建议减小表情幅度并检查帧率一致性。")
+    if audio_quality < 90:
+        suggestions.append("提升音频质量：建议使用降噪后的干净语音样本。")
+    if expression_naturalness < 86:
+        suggestions.append("提升表情自然度：建议调整表情系数或改用更匹配的驱动。")
+    if not suggestions:
+        suggestions.append("当前指标均衡，建议保持参数并进行小范围A/B对比微调。")
+
+    frame_count = rng.randint(120, 360)
+    sampled_fps = rng.choice([10, 12, 15])
+    trace_id = hashlib.md5(f"bs-mock|{user}|{video_name}|{time.time()}".encode("utf-8")).hexdigest()[:12]
+
+    pipeline_steps = [
+        {"id": "prepare", "name": "任务初始化", "status": "done", "cost_ms": rng.randint(120, 320)},
+        {"id": "extract", "name": "视频帧抽样", "status": "done", "cost_ms": rng.randint(450, 1200)},
+        {"id": "syncnet", "name": "口型同步评估", "status": "done", "cost_ms": rng.randint(500, 1500)},
+        {"id": "visual", "name": "视觉质量评估", "status": "done", "cost_ms": rng.randint(380, 980)},
+        {"id": "audio", "name": "音频质量评估", "status": "done", "cost_ms": rng.randint(300, 860)},
+        {"id": "aggregate", "name": "指标聚合与报告", "status": "done", "cost_ms": rng.randint(120, 360)},
+    ]
+
+    total_cost_ms = sum(step["cost_ms"] for step in pipeline_steps)
+
+    return {
+        "result": "Success",
+        "mode": "mock",
+        "engine": {
+            "name": "BS-Eval",
+            "display_name": "BS视频质量评测引擎",
+            "integration": "mock",
+            "connected": False,
+            "running": True,
+            "trace_id": trace_id,
+        },
+        "video": {
+            "name": video_name,
+            "frame_count": frame_count,
+            "sampled_fps": sampled_fps,
+        },
+        "overall": {
+            "score": overall,
+            "grade": grade,
+        },
+        "metrics": [
+            {"key": "lip_sync", "label": "口型同步", "score": lip_sync},
+            {"key": "visual_clarity", "label": "画面清晰度", "score": visual_clarity},
+            {"key": "temporal_stability", "label": "时序稳定性", "score": temporal_stability},
+            {"key": "audio_quality", "label": "音频质量", "score": audio_quality},
+            {"key": "expression_naturalness", "label": "表情自然度", "score": expression_naturalness},
+        ],
+        "summary": summary,
+        "suggestions": suggestions,
+        "pipeline": {
+            "status": "completed",
+            "total_cost_ms": total_cost_ms,
+            "steps": pipeline_steps,
+        },
+        "notice": "当前为 BS 评测模拟模式（Mock），已展示完整评测链路，后续可无缝切换真实模型。",
+        "generated_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }
 
 @app.route('/Cartoonize_Image', methods=['POST'])
 def Cartoonize_Image():
@@ -1629,6 +1736,23 @@ def Pull_Video_merge():
         return jsonify(result = video_data_base64)
     except:
         return jsonify(result="Failed")
+
+# 获取视频质量评测结果（当前为 mock，后续可替换为真实模型输出）
+@app.route('/Get_Video_Quality_Eval', methods=['POST'])
+def Get_Video_Quality_Eval():
+    try:
+        post_json = request.get_json() or {}
+        user = post_json.get('User')
+        video_name = post_json.get('Video_Name') or 'last_video.mp4'
+        if not user:
+            return jsonify(result="Failed", error="缺少用户参数")
+
+        # 预留：后续可在此接入 bs 项目真实评测流程
+        mock_result = _mock_video_quality_eval(str(user), str(video_name))
+        return jsonify(mock_result)
+    except Exception as e:
+        logger.exception(f"Get_Video_Quality_Eval 失败: {e}")
+        return jsonify(result="Failed", error=str(e))
 
 # 直接流式返回最终合成视频（浏览器/播放器友好）
 @app.route('/Download_Merged_Video', methods=['GET'])

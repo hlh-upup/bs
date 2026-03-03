@@ -4,7 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
-    { path: '/', redirect: '/dashboard' },
+    { path: '/', redirect: '/login' },
     {
       path: '/login',
       name: 'login',
@@ -56,9 +56,9 @@ router.beforeEach((to, from, next) => {
   const requiresGuest = to.matched.some((record) => record.meta?.requiresGuest)
 
   if (requiresAuth && !authStore.isLoggedIn) {
-    next({ name: 'login' })
+    next({ name: 'login', query: { redirect: to.fullPath } })
   } else if (requiresGuest && authStore.isLoggedIn) {
-    next({ name: 'dashboard' })
+    next({ name: 'dashboard-home' })
   } else {
     next()
   }

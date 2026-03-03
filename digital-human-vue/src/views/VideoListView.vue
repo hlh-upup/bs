@@ -261,7 +261,7 @@ const refreshVideoList = async () => {
     const videos = await getBackendVideoList()
     videoList.value = videos
 
-    // 生成本地预览缩略图
+    // 生成首帧缩略图
     for (const video of videos) {
       video.thumbnail = await generateVideoThumbnail(video)
     }
@@ -307,48 +307,72 @@ const getVideoStream = async (videoId: string) => {
 }
 
 const generateVideoThumbnail = async (video: VideoItem): Promise<string> => {
-  // 使用Canvas生成视频缩略图
   return new Promise((resolve) => {
     const videoElement = document.createElement('video')
-  videoElement.src = API_BASE_URL + video.url
+    videoElement.src = API_BASE_URL + video.url
     videoElement.crossOrigin = 'anonymous'
     videoElement.muted = true
+    videoElement.preload = 'metadata'
+    videoElement.playsInline = true
 
-    videoElement.addEventListener('loadeddata', () => {
+    let finished = false
+    const finish = (value: string) => {
+      if (finished) return
+      finished = true
+      cleanup()
+      resolve(value)
+    }
+
+    const cleanup = () => {
+      videoElement.removeEventListener('loadedmetadata', onLoadedMetadata)
+      videoElement.removeEventListener('seeked', onSeeked)
+      videoElement.removeEventListener('error', onError)
+      videoElement.pause()
+      videoElement.removeAttribute('src')
+      videoElement.load()
+    }
+
+    const onLoadedMetadata = () => {
+      const targetTime =
+        Number.isFinite(videoElement.duration) && videoElement.duration > 0
+          ? Math.min(0.1, Math.max(0, videoElement.duration - 0.01))
+          : 0
+      try {
+        videoElement.currentTime = targetTime
+      } catch {
+        finish('')
+      }
+    }
+
+    const onSeeked = () => {
       const canvas = document.createElement('canvas')
       const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        finish('')
+        return
+      }
 
-      canvas.width = 320
-      canvas.height = 180
+      const width = videoElement.videoWidth || 320
+      const height = videoElement.videoHeight || 180
+      canvas.width = width
+      canvas.height = height
 
-      // 跳转到第5秒作为缩略图
-      videoElement.currentTime = Math.min(5, video.duration)
+      try {
+        ctx.drawImage(videoElement, 0, 0, width, height)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+        finish(dataUrl)
+      } catch {
+        finish('')
+      }
+    }
 
-      setTimeout(() => {
-        if (!ctx) {
-          resolve('')
-          return
-        }
-        ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height)
+    const onError = () => finish('')
 
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              resolve('')
-              return
-            }
-            const url = URL.createObjectURL(blob)
-            resolve(url)
-          },
-          'image/jpeg',
-          0.8,
-        )
-      }, 100)
-    })
+    videoElement.addEventListener('loadedmetadata', onLoadedMetadata)
+    videoElement.addEventListener('seeked', onSeeked)
+    videoElement.addEventListener('error', onError)
 
-    videoElement.addEventListener('error', () => {
-      resolve('') // 失败时返回空字符串
-    })
+    window.setTimeout(() => finish(''), 6000)
   })
 }
 
@@ -552,6 +576,7 @@ const onKeyDown = (e: KeyboardEvent) => {
 
 onMounted(() => {
   loadVideoListFromStorage()
+  refreshVideoList()
   window.addEventListener('keydown', onKeyDown)
   // 默认桌面端展开侧边栏
   if (window.innerWidth >= 1024) {
@@ -565,6 +590,7 @@ const loadVideoListFromStorage = () => {
   videoList.value = videos.map((v: any) => ({
     ...v,
     createTime: v.createTime ? new Date(v.createTime) : new Date(),
+    thumbnail: typeof v.thumbnail === 'string' && v.thumbnail.startsWith('blob:') ? '' : v.thumbnail,
   }))
 }
 
