@@ -98,6 +98,11 @@ class Trainer:
             'overall': config['model']['task_weights']['overall']
         }
         
+        # GradNorm热身期配置：在热身期内将各任务权重固定为1.0，
+        # 待梯度方差稳定后再开启动态调整，避免训练初期权重分配震荡
+        self.warmup_epochs = config.get('train', {}).get('warmup_epochs', 5)
+        self.current_epoch = 0
+        
         # 创建输出目录
         self.output_dir = config['train']['output_dir']
         self.checkpoint_dir = os.path.join(self.output_dir, 'checkpoints')
@@ -344,6 +349,15 @@ class Trainer:
         logger.info(f"Starting training for {epochs} epochs")
         
         for epoch in range(1, epochs + 1):
+            # 更新当前epoch（用于热身期判断）
+            self.current_epoch = epoch
+            
+            # 热身期提示
+            if epoch <= self.warmup_epochs:
+                logger.info(f"Epoch {epoch}: 热身期（{epoch}/{self.warmup_epochs}），任务权重固定为1.0")
+            elif epoch == self.warmup_epochs + 1:
+                logger.info(f"Epoch {epoch}: 热身期结束，切换到动态任务权重")
+            
             # 训练一个epoch
             train_loss, train_task_losses = self._train_epoch(epoch)
             
@@ -480,13 +494,19 @@ class Trainer:
             audio_quality_loss = losses['audio_quality']
             cross_modal_loss = losses['cross_modal']
             overall_loss = losses['overall']
-            # 固定权重聚合
+            # 热身期使用均匀权重，避免GradNorm初期的权重分配震荡
+            # 注意：trainer.py使用1-based epoch，故条件为 <= warmup_epochs
+            if self.current_epoch <= self.warmup_epochs:
+                active_weights = {task: 1.0 for task in self.task_weights}
+            else:
+                active_weights = self.task_weights
+            # 权重聚合
             loss = (
-                self.task_weights['lip_sync'] * lip_sync_loss +
-                self.task_weights['expression'] * expression_loss +
-                self.task_weights['audio_quality'] * audio_quality_loss +
-                self.task_weights['cross_modal'] * cross_modal_loss +
-                self.task_weights['overall'] * overall_loss
+                active_weights['lip_sync'] * lip_sync_loss +
+                active_weights['expression'] * expression_loss +
+                active_weights['audio_quality'] * audio_quality_loss +
+                active_weights['cross_modal'] * cross_modal_loss +
+                active_weights['overall'] * overall_loss
             )
             
             # 反向传播
