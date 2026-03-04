@@ -28,16 +28,12 @@ import matplotlib.font_manager as fm
 def setup_chinese_font():
     chinese_fonts = ['SimHei', 'Microsoft YaHei', 'WenQuanYi Micro Hei',
                      'Noto Sans CJK SC', 'Source Han Sans SC', 'STSong']
+    available = {f.name for f in fm.fontManager.ttflist}
     for font_name in chinese_fonts:
-        try:
-            fp = fm.FontProperties(family=font_name)
-            if fp.get_name() != font_name:
-                continue
+        if font_name in available:
             plt.rcParams['font.sans-serif'] = [font_name]
             plt.rcParams['axes.unicode_minus'] = False
             return True
-        except Exception:
-            continue
     return False
 
 USE_CHINESE = setup_chinese_font()
