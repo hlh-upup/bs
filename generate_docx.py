@@ -36,7 +36,7 @@ try:
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.enum.style import WD_STYLE_TYPE
     from docx.oxml.ns import qn, nsdecls
-    from docx.oxml import parse_xml
+    from docx.oxml import parse_xml, OxmlElement
 except ImportError:
     print("错误：需要安装 python-docx 库")
     print("请运行：pip install python-docx")
@@ -148,6 +148,106 @@ FIGURE_REFS = {
     "fig:system-arch": "图2.8",
 }
 
+# 超链接标记分隔符（用于在文本中标记需要生成超链接的位置）
+LINK_MARKER = '\x01'
+
+# 书签 ID 计数器
+_bookmark_id_counter = 0
+
+
+def _next_bookmark_id():
+    """生成唯一的书签 ID"""
+    global _bookmark_id_counter
+    _bookmark_id_counter += 1
+    return _bookmark_id_counter
+
+
+def _reset_bookmark_counter():
+    """重置书签计数器（每次生成文档前调用）"""
+    global _bookmark_id_counter
+    _bookmark_id_counter = 0
+
+
+def _label_to_bookmark(label):
+    """将 Markdown 标签转换为有效的 Word 书签名称
+
+    例如: 'sec:ch1' -> '_sec_ch1', 'fig:wav2lip' -> '_fig_wav2lip'
+    """
+    return '_' + label.replace(':', '_').replace('-', '_')
+
+
+def _extract_label(text):
+    """从文本中提取 {#sec:xxx} 或 {#fig:xxx} 标签"""
+    m = re.search(r'\{#((?:sec|fig):[^}]+)\}', text)
+    return m.group(1) if m else None
+
+
+def _add_bookmark(paragraph, bookmark_name):
+    """为段落添加书签（作为交叉引用的跳转目标）"""
+    bid = _next_bookmark_id()
+    p = paragraph._element
+
+    start = OxmlElement('w:bookmarkStart')
+    start.set(qn('w:id'), str(bid))
+    start.set(qn('w:name'), bookmark_name)
+    p.append(start)
+
+    end = OxmlElement('w:bookmarkEnd')
+    end.set(qn('w:id'), str(bid))
+    p.append(end)
+
+
+def _add_hyperlink_run(paragraph, anchor_name, text, font_size=Pt(12),
+                       bold=False, cn_font='宋体', en_font='Times New Roman'):
+    """在段落中添加内部超链接（点击可跳转到书签位置）
+
+    生成的超链接样式与正文一致（黑色、无下划线），但可点击跳转。
+    """
+    hyperlink = OxmlElement('w:hyperlink')
+    hyperlink.set(qn('w:anchor'), anchor_name)
+
+    new_run = OxmlElement('w:r')
+    rPr = OxmlElement('w:rPr')
+
+    # 字体
+    rFonts = OxmlElement('w:rFonts')
+    rFonts.set(qn('w:ascii'), en_font)
+    rFonts.set(qn('w:hAnsi'), en_font)
+    rFonts.set(qn('w:eastAsia'), cn_font)
+    rPr.append(rFonts)
+
+    # 字号（单位：半磅）
+    sz = OxmlElement('w:sz')
+    sz.set(qn('w:val'), str(int(font_size.pt * 2)))
+    rPr.append(sz)
+    szCs = OxmlElement('w:szCs')
+    szCs.set(qn('w:val'), str(int(font_size.pt * 2)))
+    rPr.append(szCs)
+
+    # 黑色字体（覆盖超链接默认的蓝色）
+    color = OxmlElement('w:color')
+    color.set(qn('w:val'), '000000')
+    rPr.append(color)
+
+    # 无下划线
+    u = OxmlElement('w:u')
+    u.set(qn('w:val'), 'none')
+    rPr.append(u)
+
+    if bold:
+        b = OxmlElement('w:b')
+        rPr.append(b)
+
+    new_run.append(rPr)
+
+    t = OxmlElement('w:t')
+    t.set(qn('xml:space'), 'preserve')
+    t.text = text
+    new_run.append(t)
+
+    hyperlink.append(new_run)
+    paragraph._element.append(hyperlink)
+
 
 # ===========================================================================
 # 引用编号管理
@@ -181,17 +281,21 @@ class CitationManager:
 # ===========================================================================
 
 def resolve_citations(text, citation_mgr):
-    """将 [@key1; @key2] 格式的引用替换为 [N] 或 [N,M] 格式"""
+    """将 [@key1; @key2] 格式的引用替换为带超链接标记的 [N] 或 [N,M] 格式
+
+    生成的格式如：[\\x01CITE:_ref_1:1\\x01,\\x01CITE:_ref_2:2\\x01]
+    后续段落构建时会将标记转为可点击的内部超链接。
+    """
 
     def replace_cite_group(match):
         """处理一组引用 [@key1; @key2]"""
         inner = match.group(1)
         keys = re.findall(r'@(\w+)', inner)
-        numbers = []
+        parts = []
         for key in keys:
             num = citation_mgr.get_number(key)
-            numbers.append(str(num))
-        return "[" + ",".join(numbers) + "]"
+            parts.append(f"{LINK_MARKER}CITE:_ref_{num}:{num}{LINK_MARKER}")
+        return "[" + ",".join(parts) + "]"
 
     # 处理 [@key1; @key2] 格式
     text = re.sub(r'\[([^]]*@\w+[^]]*)\]', replace_cite_group, text)
@@ -200,14 +304,22 @@ def resolve_citations(text, citation_mgr):
 
 
 def resolve_crossrefs(text):
-    """将 @sec:xxx 和 @fig:xxx 替换为中文文本"""
+    """将 @sec:xxx 和 @fig:xxx 替换为带超链接标记的中文文本
+
+    生成的格式如：\\x01SEC:_sec_ch2:第二章\\x01
+    后续段落构建时会将标记转为可点击的内部超链接。
+    """
     # 处理 @sec:xxx
     for key, label in SECTION_REFS.items():
-        text = text.replace(f"@{key}", label)
+        bookmark = _label_to_bookmark(key)
+        marker = f"{LINK_MARKER}SEC:{bookmark}:{label}{LINK_MARKER}"
+        text = text.replace(f"@{key}", marker)
 
     # 处理 @fig:xxx
     for key, label in FIGURE_REFS.items():
-        text = text.replace(f"@{key}", label)
+        bookmark = _label_to_bookmark(key)
+        marker = f"{LINK_MARKER}FIG:{bookmark}:{label}{LINK_MARKER}"
+        text = text.replace(f"@{key}", marker)
 
     return text
 
@@ -220,43 +332,53 @@ def strip_crossref_labels(text):
 
 
 def parse_markdown_line(line):
-    """解析一行 markdown，返回 (类型, 内容, 级别)"""
+    """解析一行 markdown，返回 (类型, 内容, 级别, 标签)
+
+    标签用于生成 Word 书签（交叉引用跳转目标）。
+    """
     line = line.rstrip()
 
-    # 章标题 # 1 绪论
+    # 章标题 # 1 绪论 {#sec:xxx}
     m = re.match(r'^# (.+)$', line)
     if m:
-        return ('heading1', strip_crossref_labels(m.group(1)).strip(), 1)
+        raw = m.group(1)
+        label = _extract_label(raw)
+        return ('heading1', strip_crossref_labels(raw).strip(), 1, label)
 
-    # 节标题 ## 1.1 xxx
+    # 节标题 ## 1.1 xxx {#sec:xxx}
     m = re.match(r'^## (.+)$', line)
     if m:
-        return ('heading2', strip_crossref_labels(m.group(1)).strip(), 2)
+        raw = m.group(1)
+        label = _extract_label(raw)
+        return ('heading2', strip_crossref_labels(raw).strip(), 2, label)
 
-    # 小节标题 ### 1.1.1 xxx
+    # 小节标题 ### 1.1.1 xxx {#sec:xxx}
     m = re.match(r'^### (.+)$', line)
     if m:
-        return ('heading3', strip_crossref_labels(m.group(1)).strip(), 3)
+        raw = m.group(1)
+        label = _extract_label(raw)
+        return ('heading3', strip_crossref_labels(raw).strip(), 3, label)
 
-    # 图片 ![alt](path)
+    # 图片 ![alt](path){#fig:xxx}
     m = re.match(r'^!\[([^\]]*)\]\(([^)]+)\)', line)
     if m:
-        return ('image', (m.group(1), m.group(2)), 0)
+        label = _extract_label(line)
+        return ('image', (m.group(1), m.group(2)), 0, label)
 
     # 分割线
     if line.strip() == '---':
-        return ('hr', '', 0)
+        return ('hr', '', 0, None)
 
     # 空行
     if line.strip() == '':
-        return ('blank', '', 0)
+        return ('blank', '', 0, None)
 
     # 普通段落
-    return ('paragraph', line, 0)
+    return ('paragraph', line, 0, None)
 
 
 def process_inline_formatting(paragraph, text, doc, body_font_size=Pt(12)):
-    """处理行内格式（粗体 **xx**、斜体等）并添加到段落
+    """处理行内格式（粗体 **xx**、超链接等）并添加到段落
 
     注意：中文使用宋体，英文/数字使用 Times New Roman
     """
@@ -267,13 +389,37 @@ def process_inline_formatting(paragraph, text, doc, body_font_size=Pt(12)):
         if part.startswith('**') and part.endswith('**'):
             # 粗体
             inner = part[2:-2]
-            run = paragraph.add_run(inner)
-            run.bold = True
-            run.font.size = body_font_size
-            _set_run_font(run)
+            _process_text_with_links(paragraph, inner, body_font_size, bold=True)
         elif part:
-            run = paragraph.add_run(part)
-            run.font.size = body_font_size
+            _process_text_with_links(paragraph, part, body_font_size, bold=False)
+
+
+def _process_text_with_links(paragraph, text, font_size, bold=False):
+    """处理可能包含超链接标记的文本，生成普通文本或可点击超链接"""
+    if LINK_MARKER not in text:
+        # 无链接标记，直接添加普通 run
+        run = paragraph.add_run(text)
+        run.font.size = font_size
+        if bold:
+            run.bold = True
+        _set_run_font(run)
+        return
+
+    # 按链接标记分割
+    segments = text.split(LINK_MARKER)
+    for seg in segments:
+        if seg.startswith(('CITE:', 'SEC:', 'FIG:')):
+            # 超链接段：格式为 "TYPE:bookmark_name:display_text"
+            link_parts = seg.split(':', 2)
+            if len(link_parts) == 3:
+                _, bookmark, display = link_parts
+                _add_hyperlink_run(paragraph, bookmark, display, font_size, bold)
+        elif seg:
+            # 普通文本段
+            run = paragraph.add_run(seg)
+            run.font.size = font_size
+            if bold:
+                run.bold = True
             _set_run_font(run)
 
 
@@ -416,13 +562,15 @@ def add_image_placeholder(doc, alt_text, image_path):
 
 
 def add_reference_section(doc, citation_mgr):
-    """添加参考文献列表"""
+    """添加参考文献列表（每条参考文献带书签，正文中的引用可跳转至此）"""
     # 标题
     add_chapter_heading(doc, "参考文献")
 
     refs = citation_mgr.get_ordered_references()
     for num, ref_text in refs:
         p = doc.add_paragraph()
+        # 添加书签（对应正文中 [N] 的跳转目标）
+        _add_bookmark(p, f'_ref_{num}')
         # 编号
         run = p.add_run(f"[{num}] ")
         run.font.size = Pt(10.5)  # 五号
@@ -468,8 +616,9 @@ def convert_markdown_to_docx(md_files, output_path, include_references=True):
 
     # 重置引用管理器，按实际文档顺序重新编号
     citation_mgr = CitationManager()
+    _reset_bookmark_counter()
 
-    # 预处理完整文本：解析引用
+    # 预处理完整文本：解析引用（生成超链接标记）
     full_text = '\n'.join(all_lines)
     full_text = resolve_citations(full_text, citation_mgr)
     full_text = resolve_crossrefs(full_text)
@@ -484,7 +633,7 @@ def convert_markdown_to_docx(md_files, output_path, include_references=True):
     skip_figure_caption = False
 
     for line in processed_lines:
-        line_type, content, level = parse_markdown_line(line)
+        line_type, content, level, label = parse_markdown_line(line)
 
         # 跳过图片后的手动图注行（以 **图X.X 开头的行）
         if skip_figure_caption:
@@ -496,15 +645,23 @@ def convert_markdown_to_docx(md_files, output_path, include_references=True):
                 continue
 
         if line_type == 'heading1':
-            add_chapter_heading(doc, content)
+            p = add_chapter_heading(doc, content)
+            if label:
+                _add_bookmark(p, _label_to_bookmark(label))
         elif line_type == 'heading2':
-            add_section_heading(doc, content, 2)
+            p = add_section_heading(doc, content, 2)
+            if label:
+                _add_bookmark(p, _label_to_bookmark(label))
         elif line_type == 'heading3':
-            add_section_heading(doc, content, 3)
+            p = add_section_heading(doc, content, 3)
+            if label:
+                _add_bookmark(p, _label_to_bookmark(label))
         elif line_type == 'image':
             alt_text, img_path = content
             alt_clean = strip_crossref_labels(alt_text)
-            add_image_placeholder(doc, alt_clean, img_path)
+            p = add_image_placeholder(doc, alt_clean, img_path)
+            if label:
+                _add_bookmark(p, _label_to_bookmark(label))
             # 下一行可能是图注
             skip_figure_caption = True
         elif line_type == 'paragraph':
