@@ -171,9 +171,11 @@ def _reset_bookmark_counter():
 def _label_to_bookmark(label):
     """将 Markdown 标签转换为有效的 Word 书签名称
 
+    Word 书签名称限制：以字母或下划线开头，只含字母/数字/下划线，最长40字符。
     例如: 'sec:ch1' -> '_sec_ch1', 'fig:wav2lip' -> '_fig_wav2lip'
     """
-    return '_' + label.replace(':', '_').replace('-', '_')
+    name = '_' + re.sub(r'[^a-zA-Z0-9_]', '_', label)
+    return name[:40]
 
 
 def _extract_label(text):
@@ -283,7 +285,7 @@ class CitationManager:
 def resolve_citations(text, citation_mgr):
     """将 [@key1; @key2] 格式的引用替换为带超链接标记的 [N] 或 [N,M] 格式
 
-    生成的格式如：[\\x01CITE:_ref_1:1\\x01,\\x01CITE:_ref_2:2\\x01]
+    在文本中插入 LINK_MARKER 分隔的标记（如 CITE:_ref_1:1），
     后续段落构建时会将标记转为可点击的内部超链接。
     """
 
@@ -306,7 +308,7 @@ def resolve_citations(text, citation_mgr):
 def resolve_crossrefs(text):
     """将 @sec:xxx 和 @fig:xxx 替换为带超链接标记的中文文本
 
-    生成的格式如：\\x01SEC:_sec_ch2:第二章\\x01
+    在文本中插入 LINK_MARKER 分隔的标记（如 SEC:_sec_ch2:第二章），
     后续段落构建时会将标记转为可点击的内部超链接。
     """
     # 处理 @sec:xxx
@@ -414,6 +416,11 @@ def _process_text_with_links(paragraph, text, font_size, bold=False):
             if len(link_parts) == 3:
                 _, bookmark, display = link_parts
                 _add_hyperlink_run(paragraph, bookmark, display, font_size, bold)
+            else:
+                print(f"警告：格式异常的链接标记：{seg}")
+                run = paragraph.add_run(seg)
+                run.font.size = font_size
+                _set_run_font(run)
         elif seg:
             # 普通文本段
             run = paragraph.add_run(seg)
