@@ -72,9 +72,9 @@ OUTPUT_FORMAT="${1:-docx}"
 # 收集所有可用的章节文件（按顺序）
 CHAPTER_FILES=""
 
-if [ -f "chpater2.md" ]; then
-    CHAPTER_FILES="$CHAPTER_FILES chpater2.md"
-    echo "  ✓ 第1-2章: chpater2.md"
+if [ -f "chapter2.md" ]; then
+    CHAPTER_FILES="$CHAPTER_FILES chapter2.md"
+    echo "  ✓ 第1-2章: chapter2.md"
 fi
 
 if [ -f "chapter3.md" ]; then

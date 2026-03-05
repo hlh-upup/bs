@@ -42,7 +42,7 @@ chmod +x build_thesis.sh
 ## 文件结构说明
 
 ```
-├── chpater2.md          # 第1章（绪论）+ 第2章（相关技术基础）
+├── chapter2.md          # 第1章（绪论）+ 第2章（相关技术基础）
 ├── chapter3.md          # 第3章（待添加）
 ├── chapter4.md          # 第4章（待添加）
 ├── chapter5.md          # 第5章（待添加）
