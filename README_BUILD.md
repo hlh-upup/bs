@@ -1,41 +1,55 @@
 # 论文交叉引用与合并编译指南
 
-## 最快捷的方法
+## 最快捷的方法（推荐）
 
-### 方法一：使用 Pandoc 编译（推荐，全自动）
+### 方法一：Python 直接生成 Word（最推荐，无需安装额外工具）
 
-**只需三步**即可将所有 Markdown 章节合并为一个完整的 Word 论文文件：
+**只需两步**即可生成符合中国计算机类硕士论文格式的 Word 文档：
 
 ```bash
-# 1. 安装 pandoc 和 pandoc-crossref
-#    macOS:
-brew install pandoc pandoc-crossref
-#    Ubuntu/Debian:
-sudo apt install pandoc && pip install pandoc-crossref
-#    Windows (使用 scoop):
-scoop install pandoc pandoc-crossref
+# 1. 安装依赖（仅首次）
+pip install python-docx
 
-# 2. 运行编译脚本
-chmod +x build_thesis.sh
-./build_thesis.sh
-
-# 3. 输出文件：thesis_output.docx
+# 2. 生成 Word 文档
+python3 generate_docx.py
 ```
 
-编译脚本会自动：
-- 按顺序合并所有章节（第1-6章）
-- 处理交叉引用（`@sec:...`、`@fig:...`）
-- 生成 GB/T 7714 格式的参考文献列表
-- 生成目录
-- 自动编号章节和图表
+**输出**：`thesis_chapters.docx`
 
-### 方法二：手动复制到 Word（最简单）
+生成的 Word 文件特点：
+- ✅ **参考文献**：符合 **GB/T 7714-2015** 国家标准格式
+- ✅ **引用编号**：正文中的 `[@key]` 自动转为 `[1]`、`[2]` 等编号
+- ✅ **交叉引用**：`@sec:ch2` 自动转为 "第二章"，`@fig:wav2lip` 转为 "图2.1"
+- ✅ **字体格式**：
+  - 章标题：黑体 三号（16pt）居中
+  - 节标题：黑体 四号（14pt）
+  - 小节标题：黑体 小四号（12pt）
+  - 正文：宋体 小四号（12pt），英文 Times New Roman
+  - 参考文献：宋体 五号（10.5pt）
+- ✅ **页面设置**：上下 2.5cm、左 3cm、右 2.5cm，1.5 倍行距
+- ✅ **首行缩进**：正文段落自动首行缩进 2 字符
 
-如果不想安装 Pandoc，可以直接将 Markdown 内容复制到现有的 `.docx` 模板中：
+**合并到现有论文**：
 
-1. 打开 `学位论文-韩立辉(2).docx` 模板
-2. 按顺序复制各 `.md` 文件内容到对应章节位置
-3. 在 Word 中手动添加交叉引用（插入 → 交叉引用）
+1. 打开生成的 `thesis_chapters.docx`
+2. 选择需要的章节内容，复制
+3. 粘贴到您已有的 `学位论文-韩立辉(2).docx` 对应位置
+4. 参考文献列表在文件末尾，可单独复制到论文末尾
+
+### 方法二：使用 Pandoc 编译
+
+```bash
+# 安装 pandoc
+brew install pandoc pandoc-crossref    # macOS
+sudo apt install pandoc                # Ubuntu
+
+# 编译
+./build_thesis.sh pandoc
+```
+
+### 方法三：手动复制到 Word
+
+直接将 Markdown 内容复制到现有的 `.docx` 模板中，手动调整格式。
 
 ---
 
@@ -48,8 +62,9 @@ chmod +x build_thesis.sh
 ├── chapter5.md          # 第5章（待添加）
 ├── chapter6.md          # 第6章（总结与展望）
 ├── references.bib       # BibTeX 参考文献库（58条）
-├── thesis_main.md       # 论文合并主文件（YAML 元数据 + 章节包含）
-├── build_thesis.sh      # 一键编译脚本
+├── generate_docx.py     # ★ Python Word 生成脚本（推荐使用）
+├── thesis_main.md       # Pandoc 合并主文件（YAML 元数据）
+├── build_thesis.sh      # 编译脚本（支持 Python 和 Pandoc 两种方式）
 └── README_BUILD.md      # 本说明文件
 ```
 
@@ -175,14 +190,23 @@ chmod +x build_thesis.sh
 
 ## 常见问题
 
-**Q: 编译后交叉引用显示为 "??" 怎么办？**  
-A: 确保安装了 `pandoc-crossref`，并且标签名称完全匹配（区分大小写）。
+**Q: 最快的方式是什么？**
+A: 运行 `pip install python-docx && python3 generate_docx.py`，两条命令即可生成格式正确的 Word 文件。
 
-**Q: 如何生成 PDF？**  
-A: 运行 `./build_thesis.sh pdf`，需要先安装 XeLaTeX（如 TeX Live）。
+**Q: 如何合并到我已有的论文 Word 文件？**
+A: 打开生成的 `thesis_chapters.docx`，选择需要的章节内容复制，粘贴到您的论文中。参考文献在文末，可单独复制。
 
-**Q: 如何自定义 Word 输出样式？**  
-A: 创建一个 `reference.docx` 模板文件（在 Word 中设置好字体、行距、标题样式），编译时会自动使用。
+**Q: 参考文献格式是否符合 GB/T 7714？**
+A: 是的。`generate_docx.py` 中的参考文献已按 GB/T 7714-2015 国家标准格式存储，包括期刊[J]、会议[C]、学位论文[D]、标准[S]、电子资源[EB/OL]等所有类型。
 
-**Q: 图片路径找不到？**  
-A: 确保 `media/` 文件夹中包含所有引用的图片文件，或调整图片路径。
+**Q: 编译后交叉引用显示为 "??" 怎么办？**
+A: 使用 `generate_docx.py`（Python 方式）不会有此问题。如果使用 Pandoc 方式，请确保安装了 `pandoc-crossref`。
+
+**Q: 如何生成 PDF？**
+A: 运行 `./build_thesis.sh pandoc pdf`，需要先安装 XeLaTeX（如 TeX Live）。
+
+**Q: 如何自定义 Word 输出样式？**
+A: 使用 Pandoc 方式时，创建一个 `reference.docx` 模板文件。使用 Python 方式时，可直接修改 `generate_docx.py` 中的字体和字号设置。
+
+**Q: 图片路径找不到？**
+A: 确保 `media/` 文件夹中包含所有引用的图片文件，或调整图片路径。Python 方式会自动显示占位符。
