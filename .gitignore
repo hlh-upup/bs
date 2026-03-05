@@ -44,3 +44,8 @@
 **/__pycache__/
 
 # 忽略特定大文件夹（根据实际情况调整）
+
+# 编译输出文件
+thesis_output.docx
+thesis_output.pdf
+chinese-gb7714-2005-numeric.csl
