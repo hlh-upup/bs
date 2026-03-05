@@ -133,6 +133,7 @@ case "$BUILD_MODE" in
                     --toc \
                     --toc-depth=3 \
                     -M lang=zh-CN \
+                    -M link-citations=true \
                     -M title="生成式数字人质量评价模型研究及系统构建" \
                     -M reference-section-title="参考文献" \
                     -M figureTitle="图" \
@@ -170,6 +171,7 @@ case "$BUILD_MODE" in
                     -V mainfont="Times New Roman" \
                     -V geometry:margin=2.5cm \
                     -M lang=zh-CN \
+                    -M link-citations=true \
                     -M title="生成式数字人质量评价模型研究及系统构建" \
                     -M reference-section-title="参考文献" \
                     2>&1
