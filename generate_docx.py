@@ -199,33 +199,17 @@ def _add_bookmark(paragraph, bookmark_name):
     p.append(end)
 
 
-def _add_hyperlink_run(paragraph, anchor_name, text, font_size=Pt(12),
-                       bold=False, cn_font='宋体', en_font='Times New Roman'):
-    """在段落中添加内部超链接（点击可跳转到书签位置）
-
-    生成的超链接样式与正文一致（黑色、无下划线），但可点击跳转。
-    使用 Hyperlink 字符样式和 w:history 属性以确保 PDF 转换兼容性。
-    """
-    hyperlink = OxmlElement('w:hyperlink')
-    hyperlink.set(qn('w:anchor'), anchor_name)
-    hyperlink.set(qn('w:history'), '1')
-
-    new_run = OxmlElement('w:r')
+def _make_run_props(font_size=Pt(12), bold=False,
+                    cn_font='宋体', en_font='Times New Roman'):
+    """创建 w:rPr 元素（run 格式属性）"""
     rPr = OxmlElement('w:rPr')
 
-    # 引用 Hyperlink 字符样式（确保 PDF 转换器和查重工具识别超链接）
-    rStyle = OxmlElement('w:rStyle')
-    rStyle.set(qn('w:val'), 'Hyperlink')
-    rPr.append(rStyle)
-
-    # 字体
     rFonts = OxmlElement('w:rFonts')
     rFonts.set(qn('w:ascii'), en_font)
     rFonts.set(qn('w:hAnsi'), en_font)
     rFonts.set(qn('w:eastAsia'), cn_font)
     rPr.append(rFonts)
 
-    # 字号（单位：半磅）
     sz = OxmlElement('w:sz')
     sz.set(qn('w:val'), str(int(font_size.pt * 2)))
     rPr.append(sz)
@@ -233,29 +217,68 @@ def _add_hyperlink_run(paragraph, anchor_name, text, font_size=Pt(12),
     szCs.set(qn('w:val'), str(int(font_size.pt * 2)))
     rPr.append(szCs)
 
-    # 黑色字体（覆盖超链接默认的蓝色）
-    color = OxmlElement('w:color')
-    color.set(qn('w:val'), '000000')
-    rPr.append(color)
-
-    # 无下划线
-    u = OxmlElement('w:u')
-    u.set(qn('w:val'), 'none')
-    rPr.append(u)
-
     if bold:
         b = OxmlElement('w:b')
         rPr.append(b)
 
-    new_run.append(rPr)
+    return rPr
 
+
+def _add_hyperlink_run(paragraph, anchor_name, text, font_size=Pt(12),
+                       bold=False, cn_font='宋体', en_font='Times New Roman'):
+    """在段落中添加 Word 交叉引用字段（REF bookmark \\h）
+
+    等效于 Word 中"插入 → 交叉引用"操作。点击时直接在文档内跳转到
+    对应书签位置，不会打开新文件。生成的 OOXML 结构为：
+      <w:r><w:fldChar w:fldCharType="begin"/></w:r>
+      <w:r><w:instrText> REF anchor_name \\h </w:instrText></w:r>
+      <w:r><w:fldChar w:fldCharType="separate"/></w:r>
+      <w:r><w:t>display_text</w:t></w:r>
+      <w:r><w:fldChar w:fldCharType="end"/></w:r>
+    """
+    p_elem = paragraph._element
+
+    # fldChar begin
+    run_begin = OxmlElement('w:r')
+    run_begin.append(_make_run_props(font_size, bold, cn_font, en_font))
+    fld_begin = OxmlElement('w:fldChar')
+    fld_begin.set(qn('w:fldCharType'), 'begin')
+    run_begin.append(fld_begin)
+    p_elem.append(run_begin)
+
+    # instrText: REF anchor_name \h
+    run_instr = OxmlElement('w:r')
+    run_instr.append(_make_run_props(font_size, bold, cn_font, en_font))
+    instr_text = OxmlElement('w:instrText')
+    instr_text.set(qn('xml:space'), 'preserve')
+    instr_text.text = f' REF {anchor_name} \\h '
+    run_instr.append(instr_text)
+    p_elem.append(run_instr)
+
+    # fldChar separate
+    run_sep = OxmlElement('w:r')
+    run_sep.append(_make_run_props(font_size, bold, cn_font, en_font))
+    fld_sep = OxmlElement('w:fldChar')
+    fld_sep.set(qn('w:fldCharType'), 'separate')
+    run_sep.append(fld_sep)
+    p_elem.append(run_sep)
+
+    # display text
+    run_text = OxmlElement('w:r')
+    run_text.append(_make_run_props(font_size, bold, cn_font, en_font))
     t = OxmlElement('w:t')
     t.set(qn('xml:space'), 'preserve')
     t.text = text
-    new_run.append(t)
+    run_text.append(t)
+    p_elem.append(run_text)
 
-    hyperlink.append(new_run)
-    paragraph._element.append(hyperlink)
+    # fldChar end
+    run_end = OxmlElement('w:r')
+    run_end.append(_make_run_props(font_size, bold, cn_font, en_font))
+    fld_end = OxmlElement('w:fldChar')
+    fld_end.set(qn('w:fldCharType'), 'end')
+    run_end.append(fld_end)
+    p_elem.append(run_end)
 
 
 # ===========================================================================
@@ -479,9 +502,6 @@ def setup_document_styles(doc):
     _setup_heading_style(doc, 'Heading 2', '黑体', Pt(14), False)  # 四号
     _setup_heading_style(doc, 'Heading 3', '黑体', Pt(12), False)  # 小四
 
-    # 创建 Hyperlink 字符样式（避免 Word 打开时出现样式警告）
-    _setup_hyperlink_style(doc)
-
 
 def _setup_heading_style(doc, style_name, cn_font, font_size, center=False):
     """配置标题样式"""
@@ -503,24 +523,6 @@ def _setup_heading_style(doc, style_name, cn_font, font_size, center=False):
     pf.space_after = Pt(6)
     if center:
         pf.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-
-def _setup_hyperlink_style(doc):
-    """创建 Hyperlink 字符样式
-
-    定义 Hyperlink 样式可避免 Word 打开时弹出"样式不存在"的警告，
-    并确保超链接在 PDF 转换和查重工具中被正确识别。
-    样式设置为黑色无下划线，与正文视觉一致。
-    """
-    try:
-        style = doc.styles['Hyperlink']
-    except KeyError:
-        style = doc.styles.add_style('Hyperlink', WD_STYLE_TYPE.CHARACTER)
-
-    style.font.color.rgb = RGBColor(0, 0, 0)
-    style.font.underline = False
-    style.font.name = 'Times New Roman'
-    style.element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
 
 
 def add_chapter_heading(doc, text):

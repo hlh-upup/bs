@@ -143,6 +143,12 @@ case "$BUILD_MODE" in
                     -M secPrefix="" \
                     -M chapters=true \
                     2>&1
+
+                # 后处理：将超链接转换为 Word 标准交叉引用（修复点击引用打开新文件的问题）
+                if [ -f "$OUTPUT_FILE" ] && command -v python3 &> /dev/null; then
+                    echo -e "${GREEN}后处理：转换引用链接为 Word 标准交叉引用...${NC}"
+                    python3 fix_docx_links.py "$OUTPUT_FILE" 2>&1
+                fi
                 ;;
 
             pdf)

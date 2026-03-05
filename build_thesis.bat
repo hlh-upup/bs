@@ -130,6 +130,21 @@ pandoc !CHAPTER_FILES! ^
     -M secPrefix="" ^
     -M chapters=true
 
+REM 后处理：将超链接转换为 Word 标准交叉引用（修复点击引用打开新文件的问题）
+if exist "%OUTPUT_FILE%" (
+    where python3 >nul 2>&1
+    if %errorlevel% equ 0 (
+        echo   后处理：转换引用链接为 Word 标准交叉引用...
+        python3 fix_docx_links.py "%OUTPUT_FILE%"
+    ) else (
+        where python >nul 2>&1
+        if %errorlevel% equ 0 (
+            echo   后处理：转换引用链接为 Word 标准交叉引用...
+            python fix_docx_links.py "%OUTPUT_FILE%"
+        )
+    )
+)
+
 goto :CHECK_OUTPUT
 
 REM ============================================================
