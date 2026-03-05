@@ -204,12 +204,19 @@ def _add_hyperlink_run(paragraph, anchor_name, text, font_size=Pt(12),
     """在段落中添加内部超链接（点击可跳转到书签位置）
 
     生成的超链接样式与正文一致（黑色、无下划线），但可点击跳转。
+    使用 Hyperlink 字符样式和 w:history 属性以确保 PDF 转换兼容性。
     """
     hyperlink = OxmlElement('w:hyperlink')
     hyperlink.set(qn('w:anchor'), anchor_name)
+    hyperlink.set(qn('w:history'), '1')
 
     new_run = OxmlElement('w:r')
     rPr = OxmlElement('w:rPr')
+
+    # 引用 Hyperlink 字符样式（确保 PDF 转换器和查重工具识别超链接）
+    rStyle = OxmlElement('w:rStyle')
+    rStyle.set(qn('w:val'), 'Hyperlink')
+    rPr.append(rStyle)
 
     # 字体
     rFonts = OxmlElement('w:rFonts')
@@ -472,6 +479,9 @@ def setup_document_styles(doc):
     _setup_heading_style(doc, 'Heading 2', '黑体', Pt(14), False)  # 四号
     _setup_heading_style(doc, 'Heading 3', '黑体', Pt(12), False)  # 小四
 
+    # 创建 Hyperlink 字符样式（避免 Word 打开时出现样式警告）
+    _setup_hyperlink_style(doc)
+
 
 def _setup_heading_style(doc, style_name, cn_font, font_size, center=False):
     """配置标题样式"""
@@ -493,6 +503,24 @@ def _setup_heading_style(doc, style_name, cn_font, font_size, center=False):
     pf.space_after = Pt(6)
     if center:
         pf.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+
+def _setup_hyperlink_style(doc):
+    """创建 Hyperlink 字符样式
+
+    定义 Hyperlink 样式可避免 Word 打开时弹出"样式不存在"的警告，
+    并确保超链接在 PDF 转换和查重工具中被正确识别。
+    样式设置为黑色无下划线，与正文视觉一致。
+    """
+    try:
+        style = doc.styles['Hyperlink']
+    except KeyError:
+        style = doc.styles.add_style('Hyperlink', WD_STYLE_TYPE.CHARACTER)
+
+    style.font.color.rgb = RGBColor(0, 0, 0)
+    style.font.underline = False
+    style.font.name = 'Times New Roman'
+    style.element.rPr.rFonts.set(qn('w:eastAsia'), '宋体')
 
 
 def add_chapter_heading(doc, text):
@@ -635,6 +663,10 @@ def convert_markdown_to_docx(md_files, output_path, include_references=True):
     doc = Document()
     setup_document_styles(doc)
 
+    # 设置文档属性（送审系统和查重工具会读取这些元数据）
+    doc.core_properties.title = '硕士学位论文'
+    doc.core_properties.subject = '学位论文'
+
     # 逐行处理
     prev_type = None
     skip_figure_caption = False
@@ -753,6 +785,12 @@ def main():
     print("  - 正文：宋体 小四号（12pt），英文 Times New Roman")
     print("  - 参考文献：宋体 五号（10.5pt）")
     print("  - 行距：1.5 倍")
+    print()
+    print("兼容性说明（送审 / 查重 / PDF）：")
+    print("  ✓ 查重兼容：正文使用标准文本，知网/维普/万方等系统可正常提取")
+    print("  ✓ PDF转换：交叉引用使用 Word 标准书签+超链接，转 PDF 后可点击跳转")
+    print("  ✓ 送审兼容：文档包含标题样式和元数据，可正常生成目录和大纲")
+    print("  ✓ 格式合规：字体/字号/行距/页边距均符合中国硕士论文格式规范")
 
 
 if __name__ == '__main__':
