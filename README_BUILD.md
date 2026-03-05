@@ -38,13 +38,50 @@ python3 generate_docx.py
 
 ### 方法二：使用 Pandoc 编译
 
+#### Windows 用户（推荐）
+
+**第一步：安装 Pandoc**
+
+1. 访问 https://pandoc.org/installing.html
+2. 下载 Windows 安装包（`.msi`），双击安装
+3. 安装完成后**重新打开**终端（CMD 或 PowerShell），验证安装：
+
+```cmd
+pandoc --version
+```
+
+**第二步（可选）：安装 pandoc-crossref**（支持 `@sec:` `@fig:` 交叉引用）
+
+1. 访问 https://github.com/lierdakil/pandoc-crossref/releases
+2. 下载与 Pandoc 版本匹配的 Windows 版本（`pandoc-crossref-Windows.7z`）
+3. 解压 `pandoc-crossref.exe` 到 Pandoc 安装目录（通常 `C:\Users\你的用户名\AppData\Local\Pandoc\`）
+
+**第三步：编译**
+
+```cmd
+REM 在论文项目根目录下打开 CMD，运行：
+
+REM 生成 Word 文档
+build_thesis.bat
+
+REM 生成 PDF（需要额外安装 TeX Live 或 MiKTeX）
+build_thesis.bat pdf
+```
+
+**输出**：`thesis_output.docx` 或 `thesis_output.pdf`
+
+> 💡 **提示**：如果不想安装 pandoc-crossref，脚本仍可正常运行，只是 `@sec:ch2`、`@fig:wav2lip` 等交叉引用会原样保留，需要手动替换为"第二章"、"图2.1"等。
+
+#### macOS / Linux 用户
+
 ```bash
 # 安装 pandoc
 brew install pandoc pandoc-crossref    # macOS
 sudo apt install pandoc                # Ubuntu
 
 # 编译
-./build_thesis.sh pandoc
+./build_thesis.sh pandoc               # 生成 DOCX
+./build_thesis.sh pandoc pdf           # 生成 PDF
 ```
 
 ### 方法三：手动复制到 Word
@@ -64,7 +101,8 @@ sudo apt install pandoc                # Ubuntu
 ├── references.bib       # BibTeX 参考文献库（58条）
 ├── generate_docx.py     # ★ Python Word 生成脚本（推荐使用）
 ├── thesis_main.md       # Pandoc 合并主文件（YAML 元数据）
-├── build_thesis.sh      # 编译脚本（支持 Python 和 Pandoc 两种方式）
+├── build_thesis.sh      # 编译脚本 - macOS / Linux
+├── build_thesis.bat     # 编译脚本 - Windows（Pandoc 方式）
 └── README_BUILD.md      # 本说明文件
 ```
 
@@ -193,20 +231,26 @@ sudo apt install pandoc                # Ubuntu
 **Q: 最快的方式是什么？**
 A: 运行 `pip install python-docx && python3 generate_docx.py`，两条命令即可生成格式正确的 Word 文件。
 
+**Q: Windows 上如何用 Pandoc 编译？**
+A: 安装 Pandoc 后，在项目目录打开 CMD，运行 `build_thesis.bat`（生成 DOCX）或 `build_thesis.bat pdf`（生成 PDF）。
+
 **Q: 如何合并到我已有的论文 Word 文件？**
-A: 打开生成的 `thesis_chapters.docx`，选择需要的章节内容复制，粘贴到您的论文中。参考文献在文末，可单独复制。
+A: 打开生成的 `thesis_chapters.docx` 或 `thesis_output.docx`，选择需要的章节内容复制，粘贴到您的论文中。参考文献在文末，可单独复制。
 
 **Q: 参考文献格式是否符合 GB/T 7714？**
-A: 是的。`generate_docx.py` 中的参考文献已按 GB/T 7714-2015 国家标准格式存储，包括期刊[J]、会议[C]、学位论文[D]、标准[S]、电子资源[EB/OL]等所有类型。
+A: 是的。`generate_docx.py` 中的参考文献已按 GB/T 7714-2015 国家标准格式存储，包括期刊[J]、会议[C]、学位论文[D]、标准[S]、电子资源[EB/OL]等所有类型。Pandoc 方式使用 `chinese-gb7714-2005-numeric.csl` 样式文件。
 
 **Q: 编译后交叉引用显示为 "??" 怎么办？**
 A: 使用 `generate_docx.py`（Python 方式）不会有此问题。如果使用 Pandoc 方式，请确保安装了 `pandoc-crossref`。
 
 **Q: 如何生成 PDF？**
-A: 运行 `./build_thesis.sh pandoc pdf`，需要先安装 XeLaTeX（如 TeX Live）。
+A: Windows: `build_thesis.bat pdf`；macOS/Linux: `./build_thesis.sh pandoc pdf`。都需要先安装 XeLaTeX（TeX Live 或 MiKTeX）。
+
+**Q: 送审和查重会不会有问题？**
+A: 不会。无论 Python 方式还是 Pandoc 方式生成的 `.docx` 都是标准 OOXML 格式，知网/维普/万方等查重系统可正常提取文本内容。转 PDF 后也不会出现乱码或格式丢失问题。
 
 **Q: 如何自定义 Word 输出样式？**
-A: 使用 Pandoc 方式时，创建一个 `reference.docx` 模板文件。使用 Python 方式时，可直接修改 `generate_docx.py` 中的字体和字号设置。
+A: 使用 Pandoc 方式时，创建一个 `reference.docx` 模板文件（参考 [Pandoc 文档](https://pandoc.org/MANUAL.html#option--reference-doc)）。使用 Python 方式时，可直接修改 `generate_docx.py` 中的字体和字号设置。
 
 **Q: 图片路径找不到？**
 A: 确保 `media/` 文件夹中包含所有引用的图片文件，或调整图片路径。Python 方式会自动显示占位符。
