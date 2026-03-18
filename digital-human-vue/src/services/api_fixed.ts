@@ -113,7 +113,7 @@ class DigitalHumanApiService {
 
   async sendPPTRemakes(request: PPTRequest): Promise<boolean> {
     // 智能处理PPT备注数据格式
-    let processedRequest = { ...request }
+    const processedRequest = { ...request }
 
     if (typeof request.PPT_Remakes === 'string') {
       // 如果是字符串，尝试解析为JSON对象
